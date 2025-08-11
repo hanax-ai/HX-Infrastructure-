@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Logs & artifacts
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Do not track runtime data
+llm-01/logs/
+llm-01/models/
+llm-01/data/

@@ -1,0 +1,22 @@
+# {{ server_name }} — LLM Server Overview
+
+**Generated:** {{ generated_at }}
+
+## Storage Mapping
+- NVMe Device: {{ nvme_device }}
+- SATA Device: {{ sata_device }}
+- Models Mount: {{ models_mount }}
+- Bulk Storage Mount: {{ bulk_mount }}
+
+## Services
+- Ollama: {{ ollama_status }}
+- Node Exporter: {{ node_exporter_path }}
+
+## Models (production)
+{% for m in production_models %}
+- {{ m }}
+{% endfor %}
+
+## Validation Summary
+- Last Health Check: {{ last_health_check }}
+- Smoke Tests: {{ smoke_tests_summary }}
