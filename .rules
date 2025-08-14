@@ -107,9 +107,35 @@ Each service command must:
 - **Architecture Diagrams**: Visual representation of system components
 
 
-### Code Enhancement 
+### Code Enhancement
 
-- Update code enhancmenmt file after every code review and change.
+- **Update code enhancement documentation** after every code review and change
+- **Location**: `/home/agent0/HX-Infrastructure--1/llm-01/x-Docs/code-enhancements.md`
+- **Required Updates**:
+  - Enhancement number and title
+  - Component/file affected
+  - Problem addressed with clear description
+  - Solution implemented with code examples
+  - Benefits and improvements achieved
+  - Usage examples where applicable
+  - Integration points and dependencies
+- **Format**: Follow the structured format established in `llm-02/x-Docs/code-enhancements.md`
+- **Standards**: Include before/after code comparisons and technical implementation details
+- **Version Control**: Update document version and timestamp with each enhancement
+
+### Status Documentation
+
+- **Update deployment status tracker** after each task completion
+- **Location**: `/home/agent0/HX-Infrastructure--1/llm-01/x-Docs/deployment-status-tracker.md`
+- **Required Updates**:
+  - Task completion status (✅ COMPLETED / 🔄 PENDING / ❌ FAILED)
+  - Completion date and timestamp
+  - Validation results and verification steps
+  - Any issues encountered and resolutions
+  - Resource utilization and system status updates
+  - Change log entries with impact assessment
+- **Format**: Follow the structured format established in `llm-02/x-Docs/deployment-status-tracker.md`
+- **Frequency**: Update immediately upon task completion and validation
 
 ---
 
