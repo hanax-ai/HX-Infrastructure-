@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 echo "=== [HX llm-02] Preflight checks ==="
@@ -30,6 +30,38 @@ if [ ! -d "$MODEL_STORE_PATH" ]; then
   fi
   echo "Created $MODEL_STORE_PATH"
 fi
+
+# Optional: fix ownership after creation (opt-in via environment variables)
+if [ -n "${MODEL_STORE_CHOWN_TO_CURRENT_USER:-}" ] || [ -n "${MODEL_STORE_CHOWN_UID_GID:-}" ]; then
+  current_owner="$(stat -c '%U:%G' "$MODEL_STORE_PATH" 2>/dev/null || echo "unknown")"
+  current_user="$(id -un)"
+  
+  if [ -n "${MODEL_STORE_CHOWN_TO_CURRENT_USER:-}" ]; then
+    target_ownership="$current_user:$(id -gn)"
+    echo "[OWNERSHIP] Attempting to change ownership from $current_owner to $target_ownership"
+  elif [ -n "${MODEL_STORE_CHOWN_UID_GID:-}" ]; then
+    target_ownership="$MODEL_STORE_CHOWN_UID_GID"
+    echo "[OWNERSHIP] Attempting to change ownership from $current_owner to $target_ownership"
+  fi
+  
+  # Try chown with sudo if needed
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    if chown "$target_ownership" "$MODEL_STORE_PATH" 2>/dev/null; then
+      echo "✅ Ownership changed to $target_ownership"
+    else
+      echo "WARN: Failed to change ownership to $target_ownership" >&2
+    fi
+  elif command -v sudo >/dev/null 2>&1; then
+    if sudo chown "$target_ownership" "$MODEL_STORE_PATH" 2>/dev/null; then
+      echo "✅ Ownership changed to $target_ownership"
+    else
+      echo "WARN: Failed to change ownership to $target_ownership (may need different permissions)" >&2
+    fi
+  else
+    echo "WARN: Cannot change ownership - no sudo available and not running as root" >&2
+  fi
+fi
+
 if [ ! -w "$MODEL_STORE_PATH" ]; then
   echo "ERROR: $MODEL_STORE_PATH is not writable by $(id -un)." >&2
   exit 1
@@ -38,9 +70,13 @@ df -h "$MODEL_STORE_PATH" || true
 # Optional: warn if low space (override with REQUIRED_FREE_GB)
 required_gb="${REQUIRED_FREE_GB:-20}"
 avail_kb="$(df -Pk "$MODEL_STORE_PATH" | awk 'NR==2{print $4}')"
-avail_gb="$((avail_kb/1024/1024))"
-if (( avail_gb < required_gb )); then
-  echo "WARN: Only ${avail_gb}GiB free at $MODEL_STORE_PATH (recommended >= ${required_gb}GiB)."
+if [[ "$avail_kb" =~ ^[0-9]+$ ]]; then
+  avail_gb="$((avail_kb/1024/1024))"
+  if (( avail_gb < required_gb )); then
+    echo "WARN: Only ${avail_gb}GiB free at $MODEL_STORE_PATH (recommended >= ${required_gb}GiB)."
+  fi
+else
+  echo "WARN: Unable to parse free space at $MODEL_STORE_PATH; got '$avail_kb' from df." >&2
 fi
 
 PORT="${OLLAMA_PORT:-11434}"

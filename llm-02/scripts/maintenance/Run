@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# HX GPU Monitoring Quick Command Wrapper
+
+# Dynamic path resolution with fallbacks
+if [ -n "${MAINTENANCE_SCRIPTS_DIR:-}" ]; then
+    # Use environment variable if set
+    SCRIPT_DIR="$MAINTENANCE_SCRIPTS_DIR"
+elif [ -f "$(dirname "$(realpath "$0")")/gpu-monitoring-manager.sh" ]; then
+    # Local execution - script is in same directory
+    SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+else
+    # System-wide installation - look for common locations
+    for dir in \
+        "/home/agent0/HX-Infrastructure-/llm-02/scripts/maintenance" \
+        "/opt/hx/scripts/maintenance" \
+        "$(pwd)" \
+        "$(dirname "$(realpath "$0")")"; do
+        if [ -f "$dir/gpu-monitoring-manager.sh" ]; then
+            SCRIPT_DIR="$dir"
+            break
+        fi
+    done
+fi
+
+GPU_MANAGER="${SCRIPT_DIR}/gpu-monitoring-manager.sh"
+
+case "${1:-}" in
+    "G-Mon")
+        if [ -f "$GPU_MANAGER" ]; then
+            exec "$GPU_MANAGER" compact
+        else
+            echo "❌ GPU monitoring manager not found at: $GPU_MANAGER"
+            echo ""
+            echo "Searched locations:"
+            echo "  • Environment: \${MAINTENANCE_SCRIPTS_DIR}"
+            echo "  • Local: $(dirname "$(realpath "$0")")"
+            echo "  • Default: /home/agent0/HX-Infrastructure-/llm-02/scripts/maintenance"
+            echo "  • System: /opt/hx/scripts/maintenance"
+            echo ""
+            echo "Set MAINTENANCE_SCRIPTS_DIR environment variable to override"
+            exit 1
+        fi
+        ;;
+    *)
+        echo "HX Quick Commands:"
+        echo "  Run G-Mon    - Start compact GPU monitoring view"
+        echo ""
+        echo "Available after typing 'Run G-Mon':"
+        echo "  • Compact 2-line GPU data view"
+        echo "  • 10-second refresh interval"
+        echo "  • Press Ctrl+C to exit"
+        echo ""
+        echo "Configuration:"
+        echo "  Script directory: ${SCRIPT_DIR:-<not found>}"
+        echo "  GPU manager: ${GPU_MANAGER:-<not found>}"
+        ;;
+esac

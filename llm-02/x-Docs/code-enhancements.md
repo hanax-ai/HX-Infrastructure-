@@ -14,7 +14,7 @@ This document details the code enhancements applied to the `llm-02` infrastructu
 
 ## Enhancement Summary
 
-### **Total Changes:** 10 Major Improvements
+### **Total Changes:** 12 Major Improvements
 1. **GPU Check Hardening** - Prevent hangs and improve error detection
 2. **Disk Management Parameterization** - Flexible paths and sudo-less support
 3. **Port Check Robustness** - IPv4/IPv6 support and tool fallbacks
@@ -25,6 +25,8 @@ This document details the code enhancements applied to the `llm-02` infrastructu
 8. **Runtime Validation Framework** - Comprehensive service and API health verification
 9. **Optimized Liveness Probing** - Efficient health checks with optional model registry validation
 10. **Comprehensive Smoke Testing** - Automated API validation and service verification
+11. **Disk Space Parsing Validation** - Guard against df parsing edge cases and arithmetic errors
+12. **Opt-in Directory Ownership Fix** - Automated ownership correction for created directories
 
 ---
 
@@ -366,12 +368,25 @@ echo "Executing: Ollama Status Check"
 echo "=== Service Status ==="
 sudo systemctl status ollama --no-pager --lines=5
 echo -e "\n=== API Health Check ==="
-if timeout 10s curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+# Primary liveness check against root endpoint
+if response=$(timeout 10s curl -s http://localhost:11434/ 2>/dev/null) && echo "$response" | grep -q "Ollama is running"; then
   echo "✅ Ollama started successfully and is responding"
 else
   echo "❌ Ollama failed to start - check logs at /opt/hx-infrastructure/logs/services/ollama" >&2; exit 1
 fi
+
+# Optional model registry check (set OLLAMA_CHECK_MODELS=true to enable)
+if [ "${OLLAMA_CHECK_MODELS:-false}" = "true" ]; then
+  echo -e "\n=== Model Registry Check ==="
+  if timeout 10s curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+    echo "✅ Model registry accessible"
+  else
+    echo "⚠️  Model registry check failed (non-critical)" >&2
+  fi
+fi
 ```
+
+**Note**: See Enhancement 9 for the canonical optimized liveness probing implementation and detailed rationale for using the root endpoint over `/api/tags`.
 
 ### **HX-Infrastructure Standards Compliance**
 - **File Locations**: Scripts deployed to `/opt/hx-infrastructure/scripts/service/ollama/`
@@ -880,6 +895,160 @@ sudo /opt/hx-infrastructure/scripts/service/ollama/start.sh
 - **Deployment Pipelines**: Provides post-deployment validation
 - **Troubleshooting**: Clear error messages for issue diagnosis
 - **Documentation**: Self-documenting with clear test descriptions
+
+---
+
+## Enhancement 11: Disk Space Parsing Validation
+
+### **Component**: `llm-02/health/scripts/preflight-check.sh`
+### **Problem Addressed**
+- df command output parsing could fail silently leading to arithmetic errors
+- Empty or invalid avail_kb values would cause bash arithmetic evaluation failures
+- No validation of numeric content before mathematical operations
+- Potential script crashes when df output format is unexpected
+
+### **Solution Implemented**
+Added robust validation before arithmetic operations on df output:
+
+```bash
+# Original vulnerable code:
+avail_kb="$(df -Pk "$MODEL_STORE_PATH" | awk 'NR==2{print $4}')"
+avail_gb="$((avail_kb/1024/1024))"
+
+# Enhanced with validation:
+avail_kb="$(df -Pk "$MODEL_STORE_PATH" | awk 'NR==2{print $4}')"
+if [[ "$avail_kb" =~ ^[0-9]+$ ]]; then
+  avail_gb="$((avail_kb/1024/1024))"
+  if (( avail_gb < required_gb )); then
+    echo "WARN: Only ${avail_gb}GiB free at $MODEL_STORE_PATH (recommended >= ${required_gb}GiB)."
+  fi
+else
+  echo "WARN: Unable to parse free space at $MODEL_STORE_PATH; got '$avail_kb' from df." >&2
+fi
+```
+
+### **Benefits**
+- ✅ **Arithmetic Safety**: Prevents bash arithmetic errors from invalid input
+- ✅ **Input Validation**: Regex check ensures only numeric values proceed to calculation
+- ✅ **Graceful Degradation**: Script continues with warning instead of crashing
+- ✅ **Clear Error Messages**: Specific feedback about parsing failures
+- ✅ **Edge Case Handling**: Robust against unexpected df output formats
+- ✅ **Production Reliability**: Prevents script failures in diverse environments
+
+### **Validation Results**
+```bash
+# Valid df output test:
+Raw avail_kb value: '3715492828'
+✅ Numeric validation passed
+Calculated 3543GiB available
+
+# Invalid df output test:
+Raw avail_kb value: 'invalid_value'  
+❌ Numeric validation failed - got 'invalid_value' from df
+```
+
+### **Technical Implementation**
+- **Regex Pattern**: `^[0-9]+$` ensures strictly numeric content
+- **Conditional Logic**: Only performs arithmetic on validated input
+- **Error Reporting**: Uses stderr for warning messages
+- **Fallback Behavior**: Continues execution with clear error indication
+
+### **Files Affected**
+- `preflight-check.sh`: Enhanced df parsing with input validation
+
+---
+
+## Enhancement 12: Opt-in Directory Ownership Fix
+
+### **Component**: `llm-02/health/scripts/preflight-check.sh`
+### **Problem Addressed**
+- MODEL_STORE_PATH created with sudo becomes owned by root
+- Directory ownership mismatch prevents subsequent writability by invoking user
+- No mechanism to automatically fix ownership after directory creation
+- Manual chown operations required for proper access permissions
+
+### **Solution Implemented**
+Added opt-in ownership correction with dual environment variable options:
+
+```bash
+# Optional: fix ownership after creation (opt-in via environment variables)
+if [ -n "${MODEL_STORE_CHOWN_TO_CURRENT_USER:-}" ] || [ -n "${MODEL_STORE_CHOWN_UID_GID:-}" ]; then
+  current_owner="$(stat -c '%U:%G' "$MODEL_STORE_PATH" 2>/dev/null || echo "unknown")"
+  current_user="$(id -un)"
+  
+  if [ -n "${MODEL_STORE_CHOWN_TO_CURRENT_USER:-}" ]; then
+    target_ownership="$current_user:$(id -gn)"
+    echo "[OWNERSHIP] Attempting to change ownership from $current_owner to $target_ownership"
+  elif [ -n "${MODEL_STORE_CHOWN_UID_GID:-}" ]; then
+    target_ownership="$MODEL_STORE_CHOWN_UID_GID"
+    echo "[OWNERSHIP] Attempting to change ownership from $current_owner to $target_ownership"
+  fi
+  
+  # Try chown with sudo if needed
+  if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    if chown "$target_ownership" "$MODEL_STORE_PATH" 2>/dev/null; then
+      echo "✅ Ownership changed to $target_ownership"
+    else
+      echo "WARN: Failed to change ownership to $target_ownership" >&2
+    fi
+  elif command -v sudo >/dev/null 2>&1; then
+    if sudo chown "$target_ownership" "$MODEL_STORE_PATH" 2>/dev/null; then
+      echo "✅ Ownership changed to $target_ownership"
+    else
+      echo "WARN: Failed to change ownership to $target_ownership (may need different permissions)" >&2
+    fi
+  else
+    echo "WARN: Cannot change ownership - no sudo available and not running as root" >&2
+  fi
+fi
+```
+
+### **Environment Variables**
+- **`MODEL_STORE_CHOWN_TO_CURRENT_USER`**: Set to any value to change ownership to current user:group
+- **`MODEL_STORE_CHOWN_UID_GID`**: Set to specific "uid:gid" format for precise ownership control
+
+### **Benefits**
+- ✅ **Opt-in Design**: Only runs when explicitly requested via environment variables
+- ✅ **Flexible Targeting**: Supports both current user and specific UID:GID formats
+- ✅ **Graceful Fallback**: Warns but continues if chown fails or sudo unavailable
+- ✅ **Sudo Detection**: Automatically uses sudo when needed and available
+- ✅ **Pre-validation Fix**: Runs before writability check to ensure proper testing
+- ✅ **Clear Feedback**: Shows ownership change attempts and results
+
+### **Usage Examples**
+
+#### **Change to Current User**
+```bash
+MODEL_STORE_CHOWN_TO_CURRENT_USER=true ./preflight-check.sh
+# Changes ownership to agent0:agent0 (current user and group)
+```
+
+#### **Change to Specific UID:GID**
+```bash
+MODEL_STORE_CHOWN_UID_GID="1000:1000" ./preflight-check.sh
+# Changes ownership to specific numeric UID:GID
+```
+
+#### **Change to Service User**
+```bash
+MODEL_STORE_CHOWN_UID_GID="ollama:ollama" ./preflight-check.sh
+# Changes ownership to ollama service user and group
+```
+
+### **Error Handling**
+- **No Sudo Available**: Warns and continues with current ownership
+- **Chown Failure**: Logs warning with specific error context
+- **Permission Denied**: Graceful degradation with clear messaging
+- **Invalid UID/GID**: Standard chown error handling and warning
+
+### **Integration Sequence**
+1. **Directory Creation**: Create MODEL_STORE_PATH with sudo if needed
+2. **Ownership Fix**: Apply chown if environment variables are set
+3. **Writability Check**: Test write permissions with corrected ownership
+4. **Disk Space Check**: Continue with remaining validation
+
+### **Files Affected**
+- `preflight-check.sh`: Added opt-in ownership correction logic
 
 ---
 
