@@ -139,14 +139,15 @@ Deployment of dedicated embedding server (orc) following HX-Infrastructure stand
 | **Component** | **Status** | **Version/Details** |
 |---------------|------------|---------------------|
 | **Ollama Service** | 🟢 **RUNNING** | v0.10.1 on port 11434 |
-| **Embedding Model** | 🟢 **INSTALLED** | mxbai-embed-large (669 MB, 1024-dim) |
+| **Embedding Models** | 🟢 **3 MODELS** | mxbai-embed-large, nomic-embed-text, all-minilm |
+| **Model Library** | 🟢 **ENHANCED** | 1024/768/384-dim options (669/274/45 MB) |
 | **Service Scripts** | 🟢 **DEPLOYED** | 4 scripts: start/stop/restart/status |
 | **Smoke Tests** | 🟢 **DEPLOYED** | 2 scripts: basic + comprehensive |
 | **Environment Config** | 🟢 **SECURED** | /opt/hx-infrastructure/config/ollama/ |
 | **Models Directory** | 🟢 **READY** | /mnt/active_llm_models (ollama:ollama) |
 | **Systemd Security** | 🟢 **HARDENED** | NoNewPrivileges, ProtectSystem active |
 | **Network Binding** | 🟢 **ACTIVE** | 0.0.0.0:11434 (external access ready) |
-| **Embedding API** | 🟢 **OPERATIONAL** | 1024-dimensional vectors generating |
+| **Embedding API** | 🟢 **OPERATIONAL** | Multi-model embedding platform |
 | **HX-Infrastructure** | 🟢 **COMPLIANT** | Standard directory structure |
 | **Repository Integration** | 🟢 **SYNCED** | Git committed and ready |
 
@@ -217,23 +218,56 @@ Deployment of dedicated embedding server (orc) following HX-Infrastructure stand
 - **Integration**: Ready for git commit
 - **Validation**: ✅ Complete operational framework deployed
 
+### ✅ **Phase 5: Model Library Expansion** - COMPLETED
+
+#### **Task 5.1: High-Performance Model Installation (nomic-embed-text)**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 21:00 UTC
+- **Model**: nomic-embed-text
+- **Size**: 274 MB download
+- **Dimensions**: 768-dimensional embeddings
+- **Performance Profile**: High-performance alternative to mxbai-embed-large
+- **Validation**: ✅ Embedding generation confirmed operational
+
+#### **Task 5.2: Lightweight Model Installation (all-minilm)**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 21:01 UTC
+- **Model**: all-minilm
+- **Size**: 45 MB download (lightweight option)
+- **Dimensions**: 384-dimensional embeddings
+- **Performance Profile**: Fast, compact model for high-throughput scenarios
+- **Validation**: ✅ Embedding generation confirmed operational
+
+#### **Task 5.3: Model Library Validation**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 21:02 UTC
+- **Total Models**: 3 embedding models operational
+- **Library Summary**:
+  - `mxbai-embed-large`: 1024-dim, 669 MB (premium quality)
+  - `nomic-embed-text`: 768-dim, 274 MB (high-performance alternative)
+  - `all-minilm`: 384-dim, 45 MB (lightweight/fast)
+- **Validation**: ✅ All models tested and generating embeddings successfully
+
 ---
 
-## ✅ **DEPLOYMENT COMPLETE - 100% OPERATIONAL**
+## ✅ **ENHANCED DEPLOYMENT COMPLETE - EXPANDED MODEL LIBRARY**
 
-The hx-orc-server is now **fully operational** and integrated into the HX-Infrastructure operational framework with complete service management and health checking capabilities.
+The hx-orc-server now provides **three complementary embedding models** covering all performance requirements from lightweight/fast to premium quality embeddings.
 
 ---
 
-## Next Phase: Final Validation & Documentation
+## Next Phase: Advanced Testing & Optimization
 
 ### **🔄 PENDING TASKS**
 
-#### **Phase 5: Advanced Testing & Optimization**
-- [ ] **Task 5.1**: Performance baseline establishment
-- [ ] **Task 5.2**: External access verification
-- [ ] **Task 5.3**: Embedding optimization tuning
-- [ ] **Task 5.4**: Final operational documentation
+#### **Phase 6: Advanced Testing & Optimization**
+- [ ] **Task 6.1**: Performance baseline establishment across all models
+- [ ] **Task 6.2**: External access verification
+- [ ] **Task 6.3**: Model-specific optimization tuning
+- [ ] **Task 6.4**: Final operational documentation
 
 #### **Phase 5: Documentation & Finalization**
 - [ ] **Task 5.1**: Create service documentation
@@ -280,6 +314,9 @@ The hx-orc-server is now **fully operational** and integrated into the HX-Infras
 | 2025-08-14 | Smoke test framework deployed | Automated health checking (basic + comprehensive) | HX-Infrastructure |
 | 2025-08-14 | Repository integration completed | All scripts version-controlled | HX-Infrastructure |
 | 2025-08-14 | **DEPLOYMENT 100% COMPLETE** | **Fully operational embedding platform** | **HX-Infrastructure** |
+| 2025-08-14 | Phase 5 model library expansion | nomic-embed-text (274MB, 768-dim) added | HX-Infrastructure |
+| 2025-08-14 | Lightweight model deployment | all-minilm (45MB, 384-dim) added | HX-Infrastructure |
+| 2025-08-14 | **ENHANCED PLATFORM COMPLETE** | **Multi-model embedding platform (3 models)** | **HX-Infrastructure** |
 
 ---
 
