@@ -32,7 +32,7 @@ graph TB
         subgraph "Global Shared Infrastructure"
             GS["/opt/scripts/service/ollama/"]
             GT["/opt/scripts/tests/smoke/ollama/"]
-            GL["/opt/logs/services/ollama/perf/"]
+            GL["/opt/hx-infrastructure/logs/services/ollama/perf/"]
         end
         
         subgraph "LLM-01 Node"
@@ -166,15 +166,18 @@ graph LR
 - **Location**: `/opt/hx-infrastructure/llm-01/`
 - **GPU Memory**: 32GB total (2x RTX 4070 Ti)
 - **Models**: 3 production models (18.4GB total)
-- **Storage**: Symlinked to `/data/llm_bulk_storage`
+- **Storage**: Canonical path `/mnt/active_llm_models` → `/data/llm_bulk_storage`
+- **Architecture**: ✅ **ALIGNED** - Standardized with llm-02 canonical paths
 - **API**: Port 11434 (HTTP)
 
 ### **LLM-02 (Baseline Reference Node)**
 
 **Configuration:**
+
 - **Location**: `/opt/hx-infrastructure/llm-02/`
-- **Purpose**: Infrastructure baseline and reference implementation
-- **Models**: Baseline model set for testing and comparison
+- **Purpose**: Infrastructure baseline and reference implementation  
+- **Models**: Canonical path `/mnt/active_llm_models` (standardized)
+- **Architecture**: ✅ **BASELINE** - Reference implementation for cross-node consistency
 
 ---
 
@@ -219,23 +222,36 @@ flowchart TD
     style STOP fill:#ffcdd2
 ```
 
-### **Available Commands**
+### **Validation & Testing Framework**
+
+The platform includes comprehensive validation scripts and testing capabilities:
 
 ```bash
+# Enhanced Validation Scripts (NEW)
+./validate-model-config.sh                    # Comprehensive model configuration validation
+./test-extraction.sh                          # Model reference extraction testing  
+./lib/model-config.sh                         # Shared library for model parsing
+./emb-external-verify.sh                      # External connectivity verification (NEW) ✨
+
 # Service Management
-/opt/scripts/service/ollama/start.sh      # Start Ollama service
-/opt/scripts/service/ollama/stop.sh       # Stop Ollama service
-/opt/scripts/service/ollama/restart.sh    # Restart Ollama service
-/opt/scripts/service/ollama/status.sh     # Check service status
+/opt/scripts/service/ollama/start.sh           # Start Ollama service
+/opt/scripts/service/ollama/stop.sh            # Stop Ollama service
+/opt/scripts/service/ollama/restart.sh         # Restart Ollama service
+/opt/scripts/service/ollama/status.sh          # Check service status
 
-# Testing
-/opt/scripts/tests/smoke/ollama/smoke.sh              # Basic smoke test
+# Testing & Validation
+/opt/scripts/tests/smoke/ollama/smoke.sh               # Basic smoke test
 /opt/scripts/tests/smoke/ollama/comprehensive-smoke.sh # Full test suite
-
-# Validation
-./validate-model-config.sh                # Validate model configuration
-./verify-model-tags.sh                    # Verify model tag consistency
 ```
+
+**NEW: Enhanced Validation Features:**
+
+- ✅ **Model Inclusion Verification**: Cross-checks individual models against available models list
+- ✅ **Robust Parsing**: Smart comment handling and comma-splitting for malformed lists  
+- ✅ **Shared Library**: Reusable parsing functions eliminate code duplication
+- ✅ **Comprehensive Testing**: 7 unit tests covering all validation scenarios
+- ✅ **Production Ready**: Handles edge cases, quoted values, and mixed formatting
+- ✅ **External Connectivity**: Remote client verification with `emb-external-verify.sh` ✨
 
 ---
 
@@ -267,9 +283,9 @@ gantt
 | **Component** | **Frequency** | **Output Location** | **Purpose** |
 |---------------|---------------|-------------------|-------------|
 | **GPU Telemetry** | Every 5 minutes | `/llm-01/logs/gpu/nvidia-smi-ping.csv` | Hardware utilization tracking |
-| **Nightly Smoke Tests** | Daily at 00:03 UTC | `/opt/logs/services/ollama/perf/nightly-smoke.log` | Service health validation |
+| **Nightly Smoke Tests** | Daily at 00:03 UTC | `/opt/hx-infrastructure/logs/services/ollama/perf/nightly-smoke.log` | Service health validation |
 | **Security Audits** | Weekly | System logs | Permission and security compliance |
-| **Performance Logs** | Continuous | `/opt/logs/services/ollama/perf/` | Service performance metrics |
+| **Performance Logs** | Continuous | `/opt/hx-infrastructure/logs/services/ollama/perf/` | Service performance metrics |
 
 ### **Systemd Automation**
 
@@ -397,7 +413,8 @@ graph TB
 Current production models on LLM-01:
 
 ```bash
-# Model Registry (llm-01/config/ollama/ollama.env)
+# Model Registry (llm-01/config/ollama/ollama.env) - POST-ALIGNMENT
+OLLAMA_MODELS="/mnt/active_llm_models"                         # Canonical path (aligned)
 OLLAMA_MODEL_LLAMA32="llama3.2:3b"                              # 2.0GB
 OLLAMA_MODEL_QWEN3="qwen3:1.7b"                                 # 1.4GB  
 OLLAMA_MODEL_MISTRAL="mistral-small3.2@sha256:5a408ab55df5"     # 15GB
@@ -405,6 +422,8 @@ OLLAMA_MODEL_MISTRAL="mistral-small3.2@sha256:5a408ab55df5"     # 15GB
 # Available models list (single source of truth)
 OLLAMA_MODELS_AVAILABLE="llama3.2:3b,qwen3:1.7b,mistral-small3.2@sha256:5a408ab55df5"
 ```
+
+**Architecture Status**: ✅ **ALIGNED** - Both llm-01 and llm-02 now use canonical `/mnt/active_llm_models` path
 
 ### **Model Update Workflow**
 
@@ -430,61 +449,114 @@ sequenceDiagram
 
 ## 📁 Directory Structure
 
-```
+```plaintext
 HX-Infrastructure/
 ├── .rules                          # Engineering standards and guidelines
 ├── .gitignore                      # Git ignore patterns
 ├── README.md                       # This comprehensive documentation
-├── validate-model-config.sh        # Model configuration validation
-├── verify-model-tags.sh           # Model tag verification
+├── validate-model-config.sh        # Enhanced model configuration validation ✨
+├── test-extraction.sh              # Model reference extraction testing ✨
+├── emb-external-verify.sh          # External connectivity verification ✨ NEW
+├── lib/                            # Shared libraries ✨ NEW
+│   └── model-config.sh             # Shared model configuration parsing functions
 │
-├── llm-01/                         # Primary production node
+├── llm-01/                         # Primary production node ✅ ALIGNED
 │   ├── README.md                   # Node-specific documentation
 │   ├── config/
 │   │   ├── ollama/
-│   │   │   ├── ollama.env          # Environment configuration
+│   │   │   ├── ollama.env          # Environment: /mnt/active_llm_models ✅
 │   │   │   └── models/             # Model configuration
 │   │   └── readme/
 │   │       └── template.md.j2      # README template
 │   ├── data/
-│   │   └── llm_bulk_storage → /data/llm_bulk_storage  # Symlinked storage
+│   │   └── llm_bulk_storage → /data/llm_bulk_storage  # Canonical storage ✅
 │   ├── models/
-│   │   ├── production/             # Production model storage
+│   │   ├── production → /mnt/active_llm_models       # Compatibility symlink ✅
 │   │   ├── blobs/                  # Model blob storage
 │   │   └── manifests/              # Model manifests
 │   ├── scripts/
-│   │   ├── service/ollama/         # Service management (symlinked to global)
+│   │   ├── service/ollama/         # Service management (symlinked to global) ✅
 │   │   ├── tests/smoke/ollama/     # Smoke tests
 │   │   └── maintenance/            # Maintenance scripts
 │   ├── logs/
-│   │   ├── gpu/                    # GPU monitoring logs
-│   │   └── perf/ollama/           # Performance logs
+│   │   ├── gpu/                    # GPU monitoring logs ✅ ACTIVE
+│   │   └── perf/ollama/           # Performance logs ✅ ACTIVE
 │   ├── health/
 │   │   └── scripts/                # Health check scripts
 │   ├── backups/                    # Configuration backups
 │   └── x-Docs/                     # Extended documentation
-│       ├── deployment-status-tracker.md
-│       └── code-enhancements.md
+│       ├── deployment-status-tracker.md  # ✅ ARCHITECTURE ALIGNMENT COMPLETE
+│       └── code-enhancements.md           # ✅ COMPREHENSIVE ENHANCEMENTS
 │
-├── llm-02/                         # Baseline reference node
-│   ├── README.md
+├── llm-02/                         # Baseline reference node ✅ CANONICAL
+│   ├── README.md                   # Node documentation
 │   ├── config/                     # Similar structure to llm-01
 │   ├── scripts/
 │   └── x-Docs/
 │
-└── Global Infrastructure (Production Paths)
+└── Global Infrastructure (Production Paths) ✅ ACTIVE
     ├── /opt/scripts/service/ollama/     # Shared service scripts
     ├── /opt/scripts/tests/smoke/ollama/ # Shared smoke tests
-    └── /opt/logs/services/ollama/perf/  # Central performance logs
+    ├── /opt/hx-infrastructure/logs/services/ollama/perf/  # Central performance logs (canonical)
+    ├── /opt/logs/services/ollama/       # Compatibility symlink → canonical
+    └── /data/llm_bulk_storage           # Canonical model storage
+        ├── blobs/                       # 18.5GB model data
+        └── manifests/                   # Model registry
 ```
 
 ---
 
 ## 🔄 Deployment Workflow
 
-### **Infrastructure Remediation Process**
+### **Infrastructure Architecture Alignment (COMPLETED)**
 
-The HX-Infrastructure platform follows a systematic remediation approach for node alignment and upgrades:
+The HX-Infrastructure platform has successfully completed architecture alignment between llm-01 and llm-02 nodes:
+
+```mermaid
+flowchart TD
+    subgraph "Architecture Alignment Process"
+        subgraph "Pre-Alignment State"
+            PRE1[llm-01: /opt/hx-infrastructure/llm-01/models/production]
+            PRE2[llm-02: /mnt/active_llm_models]
+            PRE3[Divergent Paths]
+        end
+        
+        subgraph "Alignment Implementation"
+            ALG1[Data Migration: 18.5GB models]
+            ALG2[Path Standardization]
+            ALG3[Configuration Updates]
+            ALG4[Compatibility Symlinks]
+        end
+        
+        subgraph "Post-Alignment State"
+            POST1[llm-01: /mnt/active_llm_models ✅]
+            POST2[llm-02: /mnt/active_llm_models ✅]
+            POST3[Unified Architecture]
+        end
+    end
+    
+    PRE1 --> ALG1
+    PRE2 --> ALG2
+    PRE3 --> ALG3
+    ALG1 --> ALG4
+    ALG2 --> POST1
+    ALG3 --> POST2
+    ALG4 --> POST3
+    
+    style PRE3 fill:#ffcdd2
+    style POST3 fill:#c8e6c9
+    style ALG1 fill:#fff3e0
+```
+
+**✅ Alignment Results:**
+
+- **Canonical Path**: Both nodes use `/mnt/active_llm_models`
+- **Data Storage**: Real storage at `/data/llm_bulk_storage`
+- **Backward Compatibility**: Symlink from old llm-01 path maintained
+- **Zero Downtime**: <30 seconds total service interruption
+- **Data Integrity**: All 18.5GB of models preserved and accessible
+
+### **Standard Deployment Process**
 
 ```mermaid
 flowchart TD
@@ -627,6 +699,7 @@ pie title GPU Memory Allocation (32GB Total)
 | **Model Loading Errors** | 404 errors on model requests | Verify model tags with `./verify-model-tags.sh` |
 | **Performance Degradation** | Slow response times | Check GPU utilization logs |
 | **Configuration Drift** | Inconsistent model counts | Run `./validate-model-config.sh` |
+| **External Connectivity** | Remote access issues | Use `./emb-external-verify.sh <HOST>` |
 
 ### **Diagnostic Commands**
 
@@ -640,10 +713,12 @@ df -h /data/llm_bulk_storage                 # Storage usage
 /opt/scripts/service/ollama/status.sh        # Detailed service status
 /opt/scripts/tests/smoke/ollama/smoke.sh     # Basic functionality test
 ./validate-model-config.sh                   # Configuration validation
+./emb-external-verify.sh <HOST> [PORT]       # External connectivity test
 
 # Log Analysis
-tail -f /opt/logs/services/ollama/perf/nightly-smoke.log  # Recent test results
-cat /llm-01/logs/gpu/nvidia-smi-ping.csv                  # GPU utilization history
+tail -f /opt/hx-infrastructure/logs/services/ollama/perf/nightly-smoke.log  # Recent test results (canonical)
+tail -f /opt/logs/services/ollama/perf/nightly-smoke.log                    # Recent test results (compatibility)
+cat /llm-01/logs/gpu/nvidia-smi-ping.csv                                    # GPU utilization history
 ```
 
 ---
@@ -663,7 +738,7 @@ cat /llm-01/logs/gpu/nvidia-smi-ping.csv                  # GPU utilization hist
 - **Repository**: [HX-Infrastructure](https://github.com/hanax-ai/HX-Infrastructure-)
 - **Issues**: Use GitHub Issues for bug reports and feature requests
 - **Documentation**: Check `/x-Docs/` directories for detailed technical docs
-- **Contact**: jarvisr@hana-x.ai for infrastructure team support
+- **Contact**: Infrastructure team support via email
 
 ---
 
@@ -680,8 +755,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 | **1.0.0** | August 2025 | Initial HX-Infrastructure platform release |
 | **1.1.0** | August 2025 | Multi-node remediation and shared scaffolding |
 | **1.2.0** | August 2025 | Automated monitoring and security hardening |
+| **1.3.0** | August 2025 | **Architecture alignment and enhanced validation** |
+
+**Latest Release (v1.3.0) - Architecture Alignment:**
+
+- ✅ **Cross-Node Standardization**: llm-01 and llm-02 now use canonical `/mnt/active_llm_models` paths
+- ✅ **Enhanced Validation**: Comprehensive model configuration validation with shared libraries
+- ✅ **External Connectivity**: Remote client verification with `emb-external-verify.sh`
+- ✅ **Zero-Downtime Migration**: Successfully migrated 18.5GB of models with <30 seconds downtime
+- ✅ **Backward Compatibility**: Symlink compatibility for existing automation
+- ✅ **Production Monitoring**: Automated GPU telemetry and nightly smoke tests active
 
 ---
 
-*Generated on August 14, 2025*  
+*Generated on August 15, 2025*  
 *HX-Infrastructure Platform - Production Ready*
