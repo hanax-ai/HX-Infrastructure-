@@ -138,7 +138,7 @@ Deployment of dedicated embedding server (orc) following HX-Infrastructure stand
 
 | **Component** | **Status** | **Version/Details** |
 |---------------|------------|---------------------|
-| **Ollama Service** | 🟢 **RUNNING** | v0.10.1 on port 11434 |
+| **Ollama Service** | 🟢 **RUNNING** | v0.10.1 on port 11434 (uptime: 1h 37min) |
 | **Embedding Models** | 🟢 **3 MODELS** | mxbai-embed-large, nomic-embed-text, all-minilm |
 | **Model Library** | 🟢 **ENHANCED** | 1024/768/384-dim options (669/274/45 MB) |
 | **Service Scripts** | 🟢 **DEPLOYED** | 4 scripts: start/stop/restart/status |
@@ -153,11 +153,14 @@ Deployment of dedicated embedding server (orc) following HX-Infrastructure stand
 
 ### **📊 RESOURCE UTILIZATION**
 
-- **Service Status**: Active (running)
+- **Service Status**: Active (running) - 1h 37min uptime
+- **Memory Usage**: 1.3GB current, 1.9GB peak
+- **CPU Usage**: 56.698s total
 - **Network**: Port 11434 active, external access ready (0.0.0.0)
 - **Security**: Environment file secured (640 root:root)
 - **Models Storage**: /mnt/active_llm_models ready for embedding models
 - **API Validation**: Version endpoint responding correctly (v0.10.1)
+- **GPU Status**: Active with VRAM management (normal operation warnings)
 
 ---
 
@@ -251,6 +254,86 @@ Deployment of dedicated embedding server (orc) following HX-Infrastructure stand
   - `all-minilm`: 384-dim, 45 MB (lightweight/fast)
 - **Validation**: ✅ All models tested and generating embeddings successfully
 
+### 🔄 **Phase 6: Advanced Testing & Optimization** - IN PROGRESS
+
+#### **Task 6.1: Performance Testing Infrastructure Setup**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 23:08 UTC
+- **Directories Created**:
+  - `/opt/hx-infrastructure/scripts/tests/perf/embeddings` (test scripts)
+  - `/opt/hx-infrastructure/logs/services/ollama/embeddings` (performance logs)
+  - `/opt/hx-infrastructure/reports/perf/embeddings` (test reports)
+- **Validation**: ✅ All directories created with proper permissions
+- **Preflight Check**: ✅ Service active, API responsive (v0.10.1)
+
+#### **Task 6.2: Comprehensive Embedding Validation**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 23:14 UTC
+- **Script Created**: `/opt/hx-infrastructure/scripts/tests/perf/embeddings/emb-smoke.sh`
+- **Test Coverage**: All 3 models with semantic similarity validation
+- **Results**:
+  - **mxbai-embed-large**: 1024-dim vectors, cosine(A,B)=0.976, cosine(A,C)=0.361 ✅
+  - **nomic-embed-text**: 768-dim vectors, cosine(A,B)=0.976, cosine(A,C)=0.507 ✅
+  - **all-minilm**: 384-dim vectors, cosine(A,B)=0.963, cosine(A,C)=0.246 ✅
+- **Validation**: ✅ All models generating semantically coherent embeddings
+
+#### **Task 6.3: API Compatibility Analysis**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 23:20 UTC
+- **Issue Identified**: API only supports "prompt" parameter, not "input" parameter
+- **Impact**: High - affects OpenAI API compatibility and client migration
+- **Scripts Created**:
+  - `emb-compatibility-test.sh` - Parameter compatibility validation
+  - `emb-smoke-enhanced.sh` - Enhanced test with parameter fallback
+- **Documentation**: `x-Docs/api-compatibility-analysis.md`
+- **Validation**: ✅ Compatibility issue documented with workarounds
+
+#### **Task 6.4: Performance Baseline Collection and Analysis**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 14, 2025
+- **Time**: 23:30 UTC
+- **Scripts Created**:
+  - `emb-baseline.sh` - Latency and throughput measurement
+  - `analyze_embeddings.py` - Statistical analysis with chart generation
+  - `run-emb-phase6.sh` - Comprehensive test suite runner
+- **Data Collection**: Multiple iterations per model with comprehensive analysis
+- **Results Files**:
+  - `/opt/hx-infrastructure/logs/services/ollama/embeddings/baseline.csv`
+  - `/opt/hx-infrastructure/reports/perf/embeddings/emb_perf_summary.csv`
+  - `/opt/hx-infrastructure/reports/perf/embeddings/emb_perf_report.md`
+  - `/opt/hx-infrastructure/reports/perf/embeddings/latency_ms.png`
+  - `/opt/hx-infrastructure/reports/perf/embeddings/throughput_vectors_per_s.png`
+- **Performance Analysis Results**:
+  - **mxbai-embed-large** (1024-dim): 61.0ms avg, 16.7 v/s (15 runs, CoV 14.3%)
+  - **nomic-embed-text** (768-dim): 41.8ms avg, 24.1 v/s (10 runs, CoV 14.2%)
+  - **all-minilm** (384-dim): 33.2ms avg, 30.8 v/s (10 runs, CoV 20.0%)
+- **Statistical Validation**: All models showing CoV ≤ 20% (stable performance)
+- **Visualization**: Performance charts generated with matplotlib
+- **Validation**: ✅ Complete performance analysis framework operational
+
+#### **Task 6.5: External Access Verification**
+- **Status**: ✅ **COMPLETED**
+- **Date**: August 15, 2025
+- **Time**: 00:08 UTC
+- **Network Address**: [REDACTED INTERNAL IP] (external access ready)
+- **Scripts Created**:
+  - `emb-external-test.sh` - Single model external access verification
+  - `emb-external-comprehensive.sh` - All models external access verification
+- **Verification Results**:
+  - **API Connectivity**: ✅ Version 0.10.1 responding
+  - **Model Availability**: ✅ All 3 models accessible
+  - **mxbai-embed-large**: ✅ 1024-dim, 74ms latency
+  - **nomic-embed-text**: ✅ 768-dim, 33ms latency
+  - **all-minilm**: ✅ 384-dim, 26ms latency
+- **Network Validation**: ✅ Port 11434 listening on all interfaces (0.0.0.0)
+- **Client Access**: ✅ External clients can reach embedding API successfully
+- **Validation**: ✅ External access verified for all models with correct dimensions
+
+*Note: For exact internal IP addresses and network endpoints, refer to the internal operations runbook.*
+
 ---
 
 ## ✅ **ENHANCED DEPLOYMENT COMPLETE - EXPANDED MODEL LIBRARY**
@@ -264,10 +347,13 @@ The hx-orc-server now provides **three complementary embedding models** covering
 ### **🔄 PENDING TASKS**
 
 #### **Phase 6: Advanced Testing & Optimization**
-- [ ] **Task 6.1**: Performance baseline establishment across all models
-- [ ] **Task 6.2**: External access verification
-- [ ] **Task 6.3**: Model-specific optimization tuning
-- [ ] **Task 6.4**: Final operational documentation
+- [x] **Task 6.1**: Performance testing infrastructure setup
+- [x] **Task 6.2**: Comprehensive embedding validation across all models
+- [x] **Task 6.3**: API compatibility analysis and documentation
+- [x] **Task 6.4**: Performance baseline collection and analysis
+- [x] **Task 6.5**: External access verification
+- [ ] **Task 6.6**: Model-specific optimization tuning
+- [ ] **Task 6.7**: Final operational documentation
 
 #### **Phase 5: Documentation & Finalization**
 - [ ] **Task 5.1**: Create service documentation
@@ -317,6 +403,14 @@ The hx-orc-server now provides **three complementary embedding models** covering
 | 2025-08-14 | Phase 5 model library expansion | nomic-embed-text (274MB, 768-dim) added | HX-Infrastructure |
 | 2025-08-14 | Lightweight model deployment | all-minilm (45MB, 384-dim) added | HX-Infrastructure |
 | 2025-08-14 | **ENHANCED PLATFORM COMPLETE** | **Multi-model embedding platform (3 models)** | **HX-Infrastructure** |
+| 2025-08-14 | Status validation update | Service uptime 1h 37min, all models operational | HX-Infrastructure |
+| 2025-08-14 | Phase 6 testing infrastructure setup | Performance testing directories created | HX-Infrastructure |
+| 2025-08-14 | Comprehensive embedding validation | All 3 models tested, semantic coherence confirmed | HX-Infrastructure |
+| 2025-08-14 | API compatibility analysis complete | Input/prompt parameter compatibility documented | HX-Infrastructure |
+| 2025-08-14 | Performance baseline collection | Latency/throughput baselines established for all models | HX-Infrastructure |
+| 2025-08-14 | Performance analysis framework | Python analyzer with matplotlib charts deployed | HX-Infrastructure |
+| 2025-08-14 | Phase 6 comprehensive test suite | run-emb-phase6.sh runner validates entire pipeline | HX-Infrastructure |
+| 2025-08-15 | External access verification | All 3 models verified accessible from internal network | HX-Infrastructure |
 
 ---
 
@@ -330,5 +424,6 @@ The hx-orc-server now provides **three complementary embedding models** covering
 
 ---
 
-*Last Updated: August 14, 2025 20:38 UTC*  
-*Next Review: Phase 3 service management scripts*
+*Last Updated: August 15, 2025 00:08 UTC*  
+*Status: Phase 6 External Access Verification Complete*  
+*Current Task: Model-specific optimization tuning (Task 6.6)*
