@@ -61,7 +61,7 @@ OLLAMA_MODELS="/mnt/active_llm_models"  → /data/llm_bulk_storage
 #### **Shared Library Creation**
 - **Status**: ✅ **COMPLETED**
 - **Date**: August 14, 2025
-- **Library**: `/lib/model-config.sh` - Shared model configuration parsing functions
+- **Library**: `lib/model-config.sh` - Shared model configuration parsing functions
 - **Functions**: `extract_model_references()`, `extract_model_value()`, `is_model_variable()`
 - **Testing**: 7 comprehensive unit tests passing
 - **Benefits**: Eliminates code duplication, provides reusable parsing capabilities

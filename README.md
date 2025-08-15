@@ -282,7 +282,7 @@ gantt
 
 | **Component** | **Frequency** | **Output Location** | **Purpose** |
 |---------------|---------------|-------------------|-------------|
-| **GPU Telemetry** | Every 5 minutes | `/llm-01/logs/gpu/nvidia-smi-ping.csv` | Hardware utilization tracking |
+| **GPU Telemetry** | Every 5 minutes | `/opt/hx-infrastructure/logs/gpu/nvidia-smi-ping.csv` | Hardware utilization tracking |
 | **Nightly Smoke Tests** | Daily at 00:03 UTC | `/opt/hx-infrastructure/logs/services/ollama/perf/nightly-smoke.log` | Service health validation |
 | **Security Audits** | Weekly | System logs | Permission and security compliance |
 | **Performance Logs** | Continuous | `/opt/hx-infrastructure/logs/services/ollama/perf/` | Service performance metrics |

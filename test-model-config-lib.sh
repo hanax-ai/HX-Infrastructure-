@@ -1,7 +1,7 @@
 #!/bin/bash
 # test-model-config-lib.sh - Unit tests for the shared model-config.sh library
 
-set -euo pipefail
+set -uo pipefail
 
 # Source the library under test
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -161,7 +161,8 @@ test_is_model_variable() {
 
 # Test: Error handling for missing file
 test_error_handling() {
-    local output=$(extract_model_references "nonexistent.env" 2>&1)
+    local output
+    output=$(extract_model_references "nonexistent.env" 2>&1) || true
     
     if [[ "$output" == *"does not exist or is not readable"* ]]; then
         return 0
@@ -191,6 +192,9 @@ test_empty_file() {
 main() {
     echo "🚀 Starting model-config.sh library tests"
     echo ""
+    
+    # Setup cleanup trap
+    trap 'cleanup_test_files' EXIT
     
     # Setup test environment
     setup_test_files

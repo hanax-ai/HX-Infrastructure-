@@ -32,7 +32,7 @@ compute_model_count_from_vars() {
     
     # Count OLLAMA_MODEL_* variables (excluding OLLAMA_MODELS_AVAILABLE)
     while IFS= read -r line; do
-        if [[ "$line" =~ ^[[:space:]]*OLLAMA_MODEL_[A-Za-z0-9_]+= ]] && [[ ! "$line" =~ OLLAMA_MODELS_ ]]; then
+        if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*=[[:space:]]* ]] && [[ ! "$line" =~ OLLAMA_MODELS_ ]]; then
             ((count++))
         fi
     done < "$env_file"
@@ -282,7 +282,7 @@ main() {
     echo "🔍 CHECKING FOR UNPINNED TAGS:"
     local unpinned_found=false
     while IFS= read -r line; do
-        if [[ "$line" =~ ^[[:space:]]*OLLAMA_MODEL_[A-Za-z0-9_]+= ]] && [[ "$line" == *":latest"* ]]; then
+        if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*=[[:space:]]*[\"\']*.*:latest.*[\"\']*[[:space:]]*$ ]]; then
             echo "  ❌ Found unpinned tag: $line"
             unpinned_found=true
         fi

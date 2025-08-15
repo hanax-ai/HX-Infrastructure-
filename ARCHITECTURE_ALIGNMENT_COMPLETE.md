@@ -60,7 +60,7 @@ graph LR
 
 | **Enhancement** | **Implementation** | **Benefits** |
 |-----------------|-------------------|--------------|
-| **Shared Library** | `/lib/model-config.sh` | Eliminates code duplication |
+| **Shared Library** | `lib/model-config.sh` | Eliminates code duplication |
 | **Model Inclusion Verification** | Cross-validation logic | Prevents configuration drift |
 | **Robust Parsing** | Smart comment handling | Handles malformed configurations |
 | **Comprehensive Testing** | 7 unit tests | Production-ready validation |
@@ -145,7 +145,7 @@ ollama list
 # Result: ✅ All 3 models detected and accessible
 # - llama3.2:3b (2.0 GB)
 # - qwen3:1.7b (1.4 GB)  
-# - mistral-small3.2:latest (15 GB)
+# - mistral-small3.2@sha256:5a408ab55df5 (15 GB)
 
 # API Functionality Test
 curl -s http://localhost:11434/api/tags
@@ -168,7 +168,7 @@ mistral-small3.2:latest: 5.44 seconds (largest model)
 ## 📈 Enhanced Capabilities Delivered
 
 ### **1. Shared Library Framework**
-- **Location**: `/lib/model-config.sh`
+- **Location**: `lib/model-config.sh`
 - **Functions**: `extract_model_references()`, `extract_model_value()`, `is_model_variable()`
 - **Testing**: 7 comprehensive unit tests
 - **Benefits**: Eliminates code duplication, provides reusable parsing capabilities

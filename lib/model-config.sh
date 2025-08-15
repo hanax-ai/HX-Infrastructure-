@@ -26,8 +26,10 @@ extract_model_references() {
     while IFS= read -r line; do
         # Only match anchored OLLAMA_MODEL_* variables, explicitly excluding OLLAMA_MODELS_*
         # Support both uppercase and lowercase letters in variable names
-        if [[ "$line" =~ ^[[:space:]]*OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*= ]] && [[ ! "$line" =~ ^[[:space:]]*OLLAMA_MODELS_ ]]; then
-            local var_name=$(echo "$line" | sed 's/^[[:space:]]*\([^=]*\)[[:space:]]*=.*/\1/')
+        # Accept optional "export" prefix and optional spaces around '='
+        if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*=[[:space:]]* ]] && [[ ! "$line" =~ ^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODELS_ ]]; then
+            # Extract variable name, stripping optional leading "export" and surrounding spaces
+            local var_name=$(echo "$line" | sed 's/^[[:space:]]*\(export[[:space:]]\+\)\?\([^=[:space:]]*\)[[:space:]]*=.*/\2/')
             
             # Extract RHS value supporting both quoted and unquoted forms
             local var_value
@@ -48,7 +50,7 @@ extract_model_references() {
     
     # Extract available models list with anchored matching and quote handling
     local available_models
-    available_models=$(grep "^[[:space:]]*OLLAMA_MODELS_AVAILABLE[[:space:]]*=" "$env_file" 2>/dev/null | tail -n1 | sed 's/^[^=]*=[[:space:]]*//' || echo "")
+    available_models=$(grep -E "^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODELS_AVAILABLE[[:space:]]*=" "$env_file" 2>/dev/null | tail -n1 | sed 's/^[^=]*=[[:space:]]*//' || echo "")
     
     # Handle comments and quotes more carefully for available models
     # If the value starts with quotes, preserve content until closing quote
@@ -113,7 +115,8 @@ is_model_variable() {
     fi
     
     # Check if line matches OLLAMA_MODEL_* pattern but excludes OLLAMA_MODELS_*
-    if [[ "$line" =~ ^[[:space:]]*OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*= ]] && [[ ! "$line" =~ ^[[:space:]]*OLLAMA_MODELS_ ]]; then
+    # Accept optional "export" prefix and optional spaces around '='
+    if [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*=[[:space:]]* ]] && [[ ! "$line" =~ ^[[:space:]]*(export[[:space:]]+)?OLLAMA_MODELS_ ]]; then
         return 0
     else
         return 1

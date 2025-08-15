@@ -54,27 +54,7 @@ for M in "${MODELS[@]}"; do
   exp=$(expect_dim "$M")
   dim_ok="yes"; if [ "$exp" -gt 0 ] && [ "$dim" -ne "$exp" ]; then dim_ok="no"; fi
 
-  python3 - "$VA" "$VB" "$VC" <<'PY'
-import sys, json, math
-A=json.loads(sys.argv[1]); B=json.loads(sys.argv[2]); C=json.loads(sys.argv[3])
-def cos(u,v):
-    dot=sum(a*b for a,b in zip(u,v))
-    nu=math.sqrt(sum(a*a for a in u)) or 1.0
-    nv=math.sqrt(sum(b*b for b in v)) or 1.0
-    return dot/(nu*nv)
-print(f"{cos(A,B):.6f} {cos(A,C):.6f}")
-PY
-  read -r cosAB cosAC < <(python3 - "$VA" "$VB" "$VC" <<'PY'
-import sys, json, math
-A=json.loads(sys.argv[1]); B=json.loads(sys.argv[2]); C=json.loads(sys.argv[3])
-def cos(u,v):
-    dot=sum(a*b for a,b in zip(u,v))
-    nu=math.sqrt(sum(a*a for a in u)) or 1.0
-    nv=math.sqrt(sum(b*b for b in v)) or 1.0
-    return dot/(nu*nv)
-print(f"{cos(A,B):.6f} {cos(A,C):.6f}")
-PY
-  )
+  read -r cosAB cosAC < <(python3 scripts/cosine_similarity.py "$VA" "$VB" "$VC")
 
   # Pass condition: dimension matches (if known) AND semantic sanity (A~B > A~C + 0.05)
   pass="OK"
