@@ -25,6 +25,16 @@ MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"   # override with env if needed
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 SERVICE_FILE="/etc/systemd/system/hx-litellm-gateway.service"
 
+# ---------- Pre-check: Critical binaries ----------
+echo "--> Pre-check: Verifying critical binaries are available..."
+if ! command -v ip >/dev/null 2>&1; then
+    echo "❌ CRITICAL ERROR: 'ip' command not found."
+    echo "   The 'ip' command is required for server identity verification."
+    echo "   Please install iproute2 package: sudo apt-get install iproute2"
+    exit 1
+fi
+echo "✅ Critical binary check passed."
+
 # ---------- Step 0: Wrong-server guard ----------
 echo "--> Step 0: Verifying this is the API gateway server (${GW_IP})..."
 if [ "${FORCE:-0}" != "1" ]; then
@@ -43,7 +53,7 @@ for bin in python3 curl jq ip; do
 done
 echo "✅ Binaries present."
 
-# ---------- Step 2: Ensure directories ----------
+# ---------- Step 2: Ensure directories -----------
 echo "--> Step 2: Ensuring directory scaffold..."
 sudo mkdir -p "${CONFIG_DIR}" "${GWAY_DIR}" "${SVC_DIR}" "${LOG_DIR}" "${DEPLOY_DIR}"
 echo "✅ Directories ready under ${BASE_DIR}"
@@ -115,6 +125,32 @@ router_settings:
 YAML
 grep -q "${ORC_IP}" "${CONFIG_FILE}" && echo "✅ Config written." || { echo "❌ Config write failed"; exit 1; }
 
+# ---------- Step 6.5: Create dedicated system user ----------
+echo "--> Step 6.5: Creating dedicated system user for gateway service..."
+GATEWAY_USER="hx-gateway"
+if ! id "${GATEWAY_USER}" >/dev/null 2>&1; then
+  sudo useradd --system --shell /bin/false --home-dir /nonexistent --no-create-home "${GATEWAY_USER}"
+  echo "✅ Created system user: ${GATEWAY_USER}"
+else
+  echo "✅ System user already exists: ${GATEWAY_USER}"
+fi
+
+# Set ownership and permissions for gateway directories
+echo "--> Setting ownership and permissions for ${GATEWAY_USER}..."
+sudo chown -R "${GATEWAY_USER}:${GATEWAY_USER}" "${GWAY_DIR}" "${LOG_DIR}"
+sudo chown "${GATEWAY_USER}:${GATEWAY_USER}" "${CONFIG_FILE}"
+sudo chmod -R 755 "${GWAY_DIR}" "${LOG_DIR}"
+sudo chmod 644 "${CONFIG_FILE}"
+
+# Ensure venv is accessible to the gateway user
+if [ -d "${VENV_DIR}" ]; then
+  sudo chown -R "${GATEWAY_USER}:${GATEWAY_USER}" "${VENV_DIR}"
+  sudo find "${VENV_DIR}" -type d -exec chmod 755 {} \;
+  sudo find "${VENV_DIR}" -type f -executable -exec chmod 755 {} \;
+  sudo find "${VENV_DIR}" -type f ! -executable -exec chmod 644 {} \;
+fi
+echo "✅ Permissions set for ${GATEWAY_USER}"
+
 # ---------- Step 7: Systemd unit ----------
 echo "--> Step 7: Creating systemd unit..."
 sudo tee "${SERVICE_FILE}" >/dev/null <<EOF
@@ -124,8 +160,8 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-User=root
-Group=root
+User=${GATEWAY_USER}
+Group=${GATEWAY_USER}
 WorkingDirectory=${GWAY_DIR}
 ExecStart=${VENV_DIR}/bin/litellm --host ${GW_HOST} --port ${GW_PORT} --config ${CONFIG_FILE}
 Restart=on-failure
@@ -143,6 +179,13 @@ EOF
 
 sudo systemctl daemon-reload
 echo "✅ systemd unit installed: $(basename "${SERVICE_FILE}")"
+
+# Stop service if it's running (to apply new user settings)
+if sudo systemctl is-active --quiet hx-litellm-gateway; then
+  echo "--> Stopping existing service to apply user changes..."
+  sudo systemctl stop hx-litellm-gateway
+  sleep 2
+fi
 
 # ---------- Step 8: HX service scripts ----------
 echo "--> Step 8: Installing HX service scripts..."
@@ -212,7 +255,7 @@ curl -fsS http://127.0.0.1:${GW_PORT}/v1/embeddings \
 echo "[c] Chat (hx-chat) non-stream exact echo"
 curl -fsS http://127.0.0.1:${GW_PORT}/v1/chat/completions \
   -H "Authorization: Bearer ${MASTER_KEY}" -H "Content-Type: application/json" \
-  -d '{"model":"hx-chat","messages":[{"role":"user","content":"Return exactly the text: HX-OK"}],"max_tokens":10}' \
+  -d '{"model":"hx-chat","messages":[{"role":"user","content":"Return exactly the text: HX-OK"}],"max_tokens":10,"temperature":0}' \
   | jq -r '.choices[0].message.content' | grep -q 'HX-OK' && echo "  ✔ chat OK" || { echo "  ✖ chat failed"; exit 1; }
 
 echo

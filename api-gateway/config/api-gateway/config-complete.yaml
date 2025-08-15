@@ -1,0 +1,53 @@
+general_settings:
+  master_key: sk-hx-dev-1234
+  background_health_checks: false
+
+model_list:
+  # --- Embeddings (orc - 192.168.10.31) ---
+  - model_name: emb-premium
+    litellm_params: { model: "ollama/mxbai-embed-large", api_base: "http://192.168.10.31:11434" }
+  - model_name: emb-perf
+    litellm_params: { model: "ollama/nomic-embed-text",  api_base: "http://192.168.10.31:11434" }
+  - model_name: emb-light
+    litellm_params: { model: "ollama/all-minilm",       api_base: "http://192.168.10.31:11434" }
+
+  # --- LLM-01 Models (192.168.10.29) ---
+  - model_name: llm01-llama3.2-3b
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: "http://192.168.10.29:11434" }
+  - model_name: llm01-qwen3-1.7b
+    litellm_params: { model: "ollama/qwen3:1.7b", api_base: "http://192.168.10.29:11434" }
+  - model_name: llm01-mistral-small3.2
+    litellm_params: { model: "ollama/mistral-small3.2:latest", api_base: "http://192.168.10.29:11434" }
+
+  # --- LLM-02 Models (192.168.10.28) ---
+  - model_name: llm02-cogito-32b
+    litellm_params: { model: "ollama/cogito:32b", api_base: "http://192.168.10.28:11434" }
+  - model_name: llm02-deepcoder-14b
+    litellm_params: { model: "ollama/deepcoder:14b", api_base: "http://192.168.10.28:11434" }
+  - model_name: llm02-dolphin3-8b
+    litellm_params: { model: "ollama/dolphin3:8b", api_base: "http://192.168.10.28:11434" }
+  - model_name: llm02-gemma2-2b
+    litellm_params: { model: "ollama/gemma2:2b", api_base: "http://192.168.10.28:11434" }
+  - model_name: llm02-phi3
+    litellm_params: { model: "ollama/phi3:latest", api_base: "http://192.168.10.28:11434" }
+
+  # --- Load Balancer Groups ---
+  # Speed-optimized (small, fast models)
+  - model_name: hx-chat-fast
+    litellm_params: { model: "ollama/qwen3:1.7b", api_base: "http://192.168.10.29:11434" }
+  
+  # Balanced performance
+  - model_name: hx-chat
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: "http://192.168.10.29:11434" }
+  
+  # Code-specialized
+  - model_name: hx-chat-code
+    litellm_params: { model: "ollama/deepcoder:14b", api_base: "http://192.168.10.28:11434" }
+  
+  # High-quality reasoning
+  - model_name: hx-chat-premium
+    litellm_params: { model: "ollama/cogito:32b", api_base: "http://192.168.10.28:11434" }
+  
+  # Creative/conversational
+  - model_name: hx-chat-creative
+    litellm_params: { model: "ollama/dolphin3:8b", api_base: "http://192.168.10.28:11434" }
