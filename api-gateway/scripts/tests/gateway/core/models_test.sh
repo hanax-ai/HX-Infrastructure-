@@ -9,7 +9,16 @@ TEST_NAME="models_test"
 log_test "$TEST_NAME" "Testing /v1/models endpoint"
 
 # Test /v1/models endpoint
-response=$(make_request "/v1/models" "")
+if ! response=$(make_request "/v1/models" ""); then
+    log_test "$TEST_NAME" "❌ FAIL: API request failed"
+    exit 1
+fi
+
+# Verify response is valid JSON
+if ! echo "$response" | jq empty 2>/dev/null; then
+    log_test "$TEST_NAME" "❌ FAIL: Invalid JSON response"
+    exit 1
+fi
 
 # Validate response structure
 model_count=$(echo "$response" | jq -r '.data | length')

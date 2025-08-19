@@ -25,14 +25,20 @@ show_status() {
     echo ""
     
     # Check ownership of key directories (user:group)
-    local config_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/config" 2>/dev/null || echo "unknown:unknown")
-    local scripts_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/scripts" 2>/dev/null || echo "unknown:unknown")
-    local docs_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/x-Docs" 2>/dev/null || echo "unknown:unknown")
-    local gateway_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/gateway" 2>/dev/null || echo "unknown:unknown")
+    local config_owner
+    local scripts_owner
+    local docs_owner
+    local gateway_owner
+    config_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/config" 2>/dev/null || echo "unknown:unknown")
+    scripts_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/scripts" 2>/dev/null || echo "unknown:unknown")
+    docs_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/x-Docs" 2>/dev/null || echo "unknown:unknown")
+    gateway_owner=$(stat -c '%U:%G' "$API_GATEWAY_DIR/gateway" 2>/dev/null || echo "unknown:unknown")
     
     # Extract user and group for mode detection
-    local config_user=$(echo "$config_owner" | cut -d: -f1)
-    local config_group=$(echo "$config_owner" | cut -d: -f2)
+    local config_user
+    local config_group
+    config_user=$(echo "$config_owner" | cut -d: -f1)
+    config_group=$(echo "$config_owner" | cut -d: -f2)
     
     if [[ "$config_user" == "$DEV_USER" ]]; then
         echo "🟡 DEVELOPMENT MODE: VS Code editing enabled"

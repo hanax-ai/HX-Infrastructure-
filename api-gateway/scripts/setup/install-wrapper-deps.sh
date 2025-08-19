@@ -50,6 +50,18 @@ SCRIPT_NAME="HX Gateway Wrapper Dependency Installation"
 VENV_PATH="/opt/HX-Infrastructure-/api-gateway/gateway/venv"
 LOG_PREFIX="=== [HX GW DEPS]"
 
+# Configure sudo usage based on current user and sudo availability
+if [[ $EUID -eq 0 ]]; then
+    # Running as root, no sudo needed
+    SUDO=""
+elif command -v sudo >/dev/null 2>&1; then
+    # Not root but sudo is available
+    SUDO="sudo"
+else
+    # Not root and no sudo available
+    SUDO=""
+fi
+
 echo "$LOG_PREFIX Starting $SCRIPT_NAME ==="
 
 # Validate environment
@@ -63,8 +75,8 @@ fi
 echo "$LOG_PREFIX Configuring Python virtual environment..."
 if [ ! -d "$VENV_PATH" ]; then
     echo "$LOG_PREFIX Creating new virtual environment at $VENV_PATH"
-    sudo python3 -m venv "$VENV_PATH"
-    sudo chown -R $(whoami):$(whoami) "$VENV_PATH" 2>/dev/null || true
+    ${SUDO} python3 -m venv "$VENV_PATH"
+    ${SUDO} chown -R "$(whoami)":"$(whoami)" "$VENV_PATH" 2>/dev/null || true
 else
     echo "$LOG_PREFIX Using existing virtual environment at $VENV_PATH"
 fi

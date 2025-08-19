@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # /opt/HX-Infrastructure-/api-gateway/scripts/setup/install-systemd-service.sh
 #
 # HX Gateway Wrapper - Systemd Service Installation Script
@@ -92,6 +93,42 @@ fi
 echo "$LOG_PREFIX Setting directory ownership..."
 chown -R hx-gateway:hx-gateway /opt/HX-Infrastructure-/api-gateway/gateway/
 
+# Generate secure master key
+echo "$LOG_PREFIX Generating secure master key..."
+if [ -n "${HX_MASTER_KEY:-}" ]; then
+    echo "$LOG_PREFIX Using provided HX_MASTER_KEY from environment"
+    MASTER_KEY="$HX_MASTER_KEY"
+else
+    echo "$LOG_PREFIX Generating new secure master key..."
+    # Generate a strong 64-character hex key using openssl
+    if command -v openssl >/dev/null 2>&1; then
+        MASTER_KEY="sk-hx-$(openssl rand -hex 32)"
+    else
+        # Fallback to /dev/urandom if openssl is not available
+        MASTER_KEY="sk-hx-$(head -c 32 /dev/urandom | xxd -p -c 32)"
+    fi
+fi
+
+# Validate the master key
+if [ -z "$MASTER_KEY" ] || [ ${#MASTER_KEY} -lt 20 ]; then
+    echo "❌ ERROR: Failed to generate or validate master key"
+    echo "$LOG_PREFIX Master key must be at least 20 characters long"
+    exit 1
+fi
+
+# Create secure environment file for the master key
+ENV_FILE="/etc/hx-gateway/master.env"
+echo "$LOG_PREFIX Creating secure environment file at $ENV_FILE"
+mkdir -p "$(dirname "$ENV_FILE")"
+echo "HX_MASTER_KEY=$MASTER_KEY" > "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+chown hx-gateway:hx-gateway "$ENV_FILE"
+
+echo "$LOG_PREFIX ✅ Master key generated and stored securely"
+echo "$LOG_PREFIX 🔑 Master Key: $MASTER_KEY"
+echo "$LOG_PREFIX 📁 Key stored in: $ENV_FILE (600 permissions)"
+echo "$LOG_PREFIX ⚠️  IMPORTANT: Save this key securely - it will be needed for API authentication"
+
 # Create systemd service file
 echo "$LOG_PREFIX Creating systemd service file..."
 cat > "$SERVICE_PATH" <<'EOF'
@@ -130,8 +167,8 @@ User=hx-gateway
 Group=hx-gateway
 
 # Environment Configuration
-# Core authentication token for API access
-Environment=HX_MASTER_KEY=sk-hx-dev-1234
+# Load secure environment variables from protected file
+EnvironmentFile=/etc/hx-gateway/master.env
 
 # Upstream LiteLLM endpoint - configurable for different environments
 Environment=HX_LITELLM_UPSTREAM=http://127.0.0.1:4000

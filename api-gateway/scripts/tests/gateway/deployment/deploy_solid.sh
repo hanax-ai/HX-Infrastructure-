@@ -54,7 +54,7 @@ echo "Total Steps: ${#deployment_steps[@]}"
 echo "Failed Steps: $failed_steps"
 
 # Calculate success rate safely
-local count=${#deployment_steps[@]}
+count=${#deployment_steps[@]}
 if [[ $count -gt 0 ]]; then
     echo "Success Rate: $(( (count - failed_steps) * 100 / count ))%"
 else

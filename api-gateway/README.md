@@ -34,8 +34,11 @@ sudo systemctl status hx-gateway-ml
 # Expected: Active (running)
 
 # Test authentication (will show database error but proves proxy working)
-curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234" | jq .
+# First set your API key:
+export API_KEY="your-actual-api-key-here"
+curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer $API_KEY" | jq .
 # Expected: {"error": {"message": "No connected db.", ...}} (this confirms proxy is working)
+# Note: Store your API key in an environment file or secret manager, not in shell history
 ```
 
 ### Architecture
@@ -183,7 +186,7 @@ curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234
 **❌ Service won't start**  
 - **Check**: `sudo journalctl -u hx-gateway-ml -f`  
 - **Common**: File permissions or environment configuration  
-- **Fix**: `sudo scripts/service/ollama/restart.sh`  
+- **Fix**: `sudo systemctl restart hx-gateway-ml`  
 
 **❌ Port conflicts**  
 - **Check**: `sudo netstat -tlnp | grep :4010`  

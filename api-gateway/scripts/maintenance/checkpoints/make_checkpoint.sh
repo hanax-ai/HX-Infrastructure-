@@ -10,9 +10,7 @@ for cmd in tar find sha256sum curl python3; do
 done
 
 # Check for python3 -m pip availability
-if python3 -m pip --version >/dev/null 2>&1; then
-    PIP_MODULE="pip"
-else
+if ! python3 -m pip --version >/dev/null 2>&1; then
     missing_deps+=("python3-pip")
 fi
 
@@ -33,7 +31,12 @@ trap 'rm -rf "${TMP}"' EXIT
 
 # API and authentication configuration (consistent with validate_restore.sh)
 API_URL="${API_URL:-${API:-http://127.0.0.1:4000}}"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"
+# Security: MASTER_KEY must be set externally
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
+    echo "   Please export MASTER_KEY=your-secure-key before running this script" >&2
+    exit 1
+fi
 
 echo "=== [make_checkpoint] Creating checkpoint @ ${TS} ==="
 # Verify expected paths (idempotent + helpful errors)
@@ -65,7 +68,7 @@ find "${LOGDIR}" -type f -name "gw-smoke-*.log" -printf "%T@ %p\n" 2>/dev/null \
  | sort -nr | head -3 | awk '{print $2}' | xargs -r -I{} cp -a "{}" "${TMP}/snapshot/logs/" || true
 # 5) Python env & litellm version
 mkdir -p "${TMP}/snapshot/env"
-python3 -m "${PIP_MODULE}" freeze > "${TMP}/snapshot/env/pip-freeze.txt" || true
+python3 -m pip freeze > "${TMP}/snapshot/env/pip-freeze.txt" || true
 python3 - <<'PY' > "${TMP}/snapshot/env/litellm-version.txt" || true
 try:
     import importlib.metadata as md

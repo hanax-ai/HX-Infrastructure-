@@ -60,7 +60,6 @@ for i in "${!test_prompts[@]}"; do
     echo "Prompt: $(echo "$prompt" | head -c 50)..."
     
     # Construct JSON payload safely using jq
-    local payload http_status response_body response
     payload=$(jq -n \
         --arg model "$MODEL_NAME" \
         --arg prompt "$prompt" \

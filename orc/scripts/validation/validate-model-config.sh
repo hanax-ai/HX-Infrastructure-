@@ -6,7 +6,7 @@ set -euo pipefail
 
 # Source shared model configuration library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/model-config.sh"
+source "$SCRIPT_DIR/../lib/model-config.sh"
 
 ENV_FILE="${1:-/opt/hx-infrastructure/llm-01/config/ollama/ollama.env}"
 VALIDATION_MODE="${2:-strict}"  # strict|info

@@ -98,7 +98,12 @@ if ${SUDO} systemctl is-active --quiet "${SVC_GW}"; then echo "Gateway enabled a
 ${SUDO} systemctl enable "${TIMER_SMOKE}" --now || true
 
 # 7) Final validation – run orchestrator once
-API="http://127.0.0.1:4000" MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}" LOG_DIR="${LOGDIR}" \
+API="http://127.0.0.1:4000" # Security: MASTER_KEY must be set externally
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
+    echo "   Please export MASTER_KEY=your-secure-key before running this script" >&2
+    exit 1
+fi LOG_DIR="${LOGDIR}" \
   "${BASE}/scripts/tests/gateway/orchestration/smoke_suite.sh"
 
 echo "✅ Restore completed and validated."

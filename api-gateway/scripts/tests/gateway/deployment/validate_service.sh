@@ -51,6 +51,6 @@ else
 fi
 
 echo "→ Showing test results summary..."
-sudo journalctl -u "$SVC" --no-pager -n 50 | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -10
+sudo journalctl -u "$SVC" --no-pager -n 50 | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -10 || true
 
 echo "✅ Service validation completed successfully"

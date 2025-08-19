@@ -130,8 +130,9 @@ curl -s http://127.0.0.1:4010/healthz
 # Returns: {"ok": true, "note": "HX wrapper – proxy mode"}
 
 # Reverse proxy verification  
-curl -i -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234"
+curl -i -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer $YOUR_API_KEY"
 # Returns: HTTP/1.1 400 + LiteLLM database error (proxy working correctly)
+# Note: Set YOUR_API_KEY environment variable with your actual API key
 ```
 
 ### Service Status

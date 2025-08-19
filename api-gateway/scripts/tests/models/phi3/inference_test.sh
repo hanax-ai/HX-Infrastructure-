@@ -49,24 +49,30 @@ for i in "${!test_prompts[@]}"; do
     echo "Test $((i+1))/$total_tests: Testing inference capability"
     echo "Prompt: $(echo "$prompt" | head -c 60)..."
     
-    # Construct JSON payload safely using jq
-    local payload
-    payload=$(jq -n \
+    # Build payload and send request; detect HTTP errors
+    raw_response=$(jq -n \
         --arg model "$MODEL_NAME" \
         --arg prompt "$prompt" \
         --argjson temperature 0.4 \
         --argjson max_tokens 300 \
         '{
-            "model": $model,
-            "messages": [{"role": "user", "content": $prompt}],
-            "temperature": $temperature,
-            "max_tokens": $max_tokens
-        }')
-    
-    response=$(curl -s --max-time 60 "${API_BASE}/v1/chat/completions" \
+            model: $model,
+            messages: [{role: "user", content: $prompt}],
+            temperature: $temperature,
+            max_tokens: $max_tokens
+        }' | \
+        curl -s -fS --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${MASTER_KEY}" \
         -H "Content-Type: application/json" \
-        --data-binary "$payload" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
+        -d @-)
+
+    # Check if curl failed
+    if [[ ${PIPESTATUS[1]} -ne 0 ]]; then
+        echo "❌ FAIL: HTTP request failed"
+        continue
+    fi
+
+    response=$(echo "$raw_response" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
     
     if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 20 ]]; then
         echo "✅ PASS: Generated $(echo "$response" | wc -w) words"

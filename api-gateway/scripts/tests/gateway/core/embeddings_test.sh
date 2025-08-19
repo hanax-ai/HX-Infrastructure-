@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail    if [[ $jq_rc -ne 0 ]] || [[ -z "$actual_dim" ]] || [[ "$actual_dim" == "null" ]]; then
-        log_test "$TEST_NAME" "❌ $model: Invalid JSON response or missing embedding data"
-        return 1
-    fi
-    
-    if [[ "$actual_dim" -eq "$expected_dim" ]]; then
-        log_test "$TEST_NAME" "✅ $model: $actual_dim dimensions (correct)"
-        return 0
-    else
-        log_test "$TEST_NAME" "❌ $model: Expected $expected_dim dimensions, got $actual_dim"
-        return 1Single Responsibility - ONLY tests /v1/embeddings endpoint
+set -euo pipefail
+
+# Single Responsibility - ONLY tests /v1/embeddings endpoint
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../config/test_config.sh"
 

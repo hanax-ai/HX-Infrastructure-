@@ -8,8 +8,13 @@
 
 set -euo pipefail
 
-readonly SCRIPT_NAME="$(basename "$0")"
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Perform command substitutions first to detect any failures (fixes SC2155)
+SCRIPT_NAME="$(basename "$0")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Make variables readonly after successful assignment
+readonly SCRIPT_NAME
+readonly SCRIPT_DIR
 
 # Derive paths from script location with environment variable overrides for portability
 readonly CONFIG_DIR="${CONFIG_DIR:-$(cd "$SCRIPT_DIR/../../config/api-gateway" 2>/dev/null && pwd || echo "$SCRIPT_DIR/../../config/api-gateway")}"

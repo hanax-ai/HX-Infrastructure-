@@ -1,10 +1,10 @@
 # HX-Infrastructure API Gateway - Directory Index
 
-**Component**: API Gateway (LiteLLM)  
+**Component**: API Gateway (LiteLLM + NEW GatewayPipeline)  
 **Server**: hx-api-gateway-server (192.168.10.39)  
 **Generated**: August 18, 2025  
-**Total Directories**: 35  
-**Total Files**: 57  
+**Total Directories**: 38 (+3 NEW)  
+**Total Files**: 69 (+12 NEW)  
 
 ---
 
@@ -27,11 +27,13 @@
 ```
 config/
 └── api-gateway/
-    └── config.yaml                 # Main LiteLLM configuration file
+    ├── config.yaml                 # existing LiteLLM config (unchanged)
+    ├── model_registry.yaml         # NEW – metadata used by ML routing
+    └── routing.yaml                 # NEW – routing knobs (weights, features)
 ```
 **Purpose**: Centralized configuration storage  
 **Owner**: root:hx-gateway  
-**Files**: 1 config file  
+**Files**: 3 config files (1 existing + 2 NEW)  
 
 ### 📁 `/gateway/` - Runtime Directory
 ```
@@ -45,11 +47,25 @@ gateway/
 ├── data/                           # Runtime data (empty)
 ├── health/                         # Health check data (empty)
 ├── logs/                           # Local logs (empty)
+├── src                             # NEW – GatewayPipeline source code
+│   ├── main.py                     # NEW – Uvicorn entrypoint for wrapper
+│   ├── gateway_pipeline.py         # NEW – pipeline + context
+│   ├── middlewares/                # NEW – SOLID middleware components
+│   │   ├── base.py                 # NEW – MiddlewareBase
+│   │   ├── security.py             # NEW – bearer auth check
+│   │   ├── validation.py           # NEW – schema + method checks
+│   │   ├── transform.py            # NEW – embeddings input→prompt, normalizers
+│   │   ├── routing.py              # NEW – group→model selection
+│   │   └── execution.py            # NEW – forward to LiteLLM (httpx pool)
+│   └── routing/                    # NEW – ML routing components
+│       ├── selector.py             # NEW – ModelSelectionAlgorithm (ML hook)
+│       └── features.py             # NEW – feature calc stubs (load, perf, spec)
+├── venv/                           # (already present; used for wrapper deps)
 └── README.md                       # Gateway documentation
 ```
-**Purpose**: LiteLLM gateway runtime environment  
+**Purpose**: LiteLLM gateway runtime environment + NEW GatewayPipeline  
 **Owner**: hx-gateway:hx-gateway  
-**Files**: 4 config files + 1 doc  
+**Files**: 4 config files + 1 doc + 9 NEW source files  
 
 ### 📁 `/logs/` - Centralized Logging
 ```
@@ -71,6 +87,10 @@ scripts/
 ├── maintenance/                    # Maintenance operations
 ├── security/                       # Security management
 ├── service/                        # Service management
+│   └── api-gateway-ml/             # NEW – ML Gateway Pipeline service
+│       ├── start.sh                # NEW – start wrapper service
+│       ├── stop.sh                 # NEW – stop wrapper service
+│       └── status.sh               # NEW – status + health
 └── tests/                          # Testing infrastructure
 ```
 
@@ -283,14 +303,15 @@ x-Docs/
 
 ## Summary
 
-**Total Structure**: 35 directories, 57 files  
+**Total Structure**: 38 directories (+3 NEW), 69 files (+12 NEW)  
 **SOLID Compliance**: 100% across all components  
+**NEW Features**: GatewayPipeline with ML routing, async middleware  
 **Test Coverage**: 4/4 API endpoints, 8/8 individual models  
 **Security**: Dedicated user with minimal privileges  
 **Automation**: Complete checkpoint/restore capability  
 **Documentation**: Comprehensive with progress tracking  
 
-**Status**: ✅ Production Ready with Phase 6 Complete
+**Status**: ✅ Production Ready with Phase 6 Complete + NEW GatewayPipeline Architecture
 
 ---
 

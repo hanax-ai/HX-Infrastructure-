@@ -16,22 +16,28 @@ if [[ ! -f "$UNIT" ]]; then
 fi
 
 echo "→ Updating WorkingDirectory in systemd unit..."
-if ! sudo grep -q "^WorkingDirectory=${BASE}$" "$UNIT"; then
-    sudo sed -i "s|^WorkingDirectory=.*|WorkingDirectory=${BASE}|g" "$UNIT" || true
-    if ! sudo grep -q "^WorkingDirectory=" "$UNIT"; then
-        sudo sed -i "/^\[Service\]/a WorkingDirectory=${BASE}" "$UNIT"
-    fi
-    echo "   Updated WorkingDirectory to: ${BASE}"
+if sudo grep -q -E '^[[:space:]]*WorkingDirectory=' "$UNIT"; then
+    # Replace the first existing WorkingDirectory entry (with optional leading whitespace)
+    sudo sed -i -E '0,/^[[:space:]]*WorkingDirectory=/s|^[[:space:]]*WorkingDirectory=.*|WorkingDirectory='${BASE}'|' "$UNIT"
+    echo "   Updated existing WorkingDirectory to: ${BASE}"
 else
-    echo "   WorkingDirectory already correct"
+    # No WorkingDirectory found, insert after [Service] header
+    sudo sed -i "/^\[Service\]/a WorkingDirectory=${BASE}" "$UNIT"
+    echo "   Added WorkingDirectory to: ${BASE}"
 fi
 
 echo "→ Updating ExecStart path in systemd unit..."
-if ! sudo grep -q "scripts/tests/gateway/orchestration/nightly_runner.sh" "$UNIT"; then
-    sudo sed -i "s|^ExecStart=.*|ExecStart=/usr/bin/env bash -lc 'scripts/tests/gateway/orchestration/nightly_runner.sh'|g" "$UNIT"
-    echo "   Updated ExecStart path"
+TARGET="${BASE}/scripts/tests/gateway/orchestration/nightly_runner.sh"
+if sudo grep -qE '^[[:space:]]*ExecStart=' "$UNIT"; then
+    if ! sudo grep -qE "^[[:space:]]*ExecStart=.*nightly_runner\.sh" "$UNIT"; then
+        sudo sed -E -i "s|^[[:space:]]*ExecStart=.*|ExecStart=/usr/bin/env bash -lc '${TARGET}'|" "$UNIT"
+        echo "   Updated ExecStart path"
+    else
+        echo "   ExecStart path already correct"
+    fi
 else
-    echo "   ExecStart path already correct"
+    sudo sed -i "/^\[Service\]/a ExecStart=/usr/bin/env bash -lc '${TARGET}'" "$UNIT"
+    echo "   Inserted ExecStart"
 fi
 
 echo "→ Reloading systemd daemon..."

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -uo pipefail
+set -euo pipefail
 
 # SOLID: Single Responsibility - Test ONLY llama3 inference capability
 # Configuration - Environment variables with fallbacks (SOLID: Dependency Inversion)
@@ -54,13 +54,12 @@ for i in "${!test_prompts[@]}"; do
             "temperature": $temperature,
             "max_tokens": $max_tokens
         }')
-    
     response=$(curl -s --max-time 45 "${API_BASE}/v1/chat/completions" \
+    response=$(curl -fsS --max-time 45 "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${AUTH_KEY}" \
+        -H "Accept: application/json" \
         -H "Content-Type: application/json" \
         --data-binary "$payload" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
-    
-    if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 10 ]]; then
         echo "✅ PASS: Generated $(echo "$response" | wc -w) words"
         echo "Preview: $(echo "$response" | head -c 100)..."
         ((passed++))

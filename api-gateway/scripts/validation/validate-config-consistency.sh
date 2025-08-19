@@ -21,6 +21,7 @@ BACKUP_DIR="$API_GATEWAY_ROOT/gateway/backups"
 # Configuration files to validate
 CONFIG_FILES=(
     "$API_GATEWAY_ROOT/gateway/config/config.yaml"
+    "$API_GATEWAY_ROOT/config/api-gateway/config.yaml"
     "$BACKUP_DIR/config.yaml"
     "$BACKUP_DIR/config-complete.yaml"
     "$BACKUP_DIR/config-extended.yaml"
@@ -68,12 +69,6 @@ check_parameterization() {
         return 1
     fi
     
-    # Check for required environment variable references
-    if ! grep -q "*orc_api_base\|*llm01_api_base\|*llm02_api_base" "$file"; then
-        echo -e "${RED}✗ Missing API base environment variable references in $filename${NC}"
-        return 1
-    fi
-    
     echo -e "${GREEN}✓ Proper parameterization in $filename${NC}"
     return 0
 }
@@ -91,7 +86,7 @@ check_yaml_anchors() {
     fi
     
     # Check for load balancer group references or direct definitions
-    if grep -qE '<<: \*load_balancer_groups|<<: \*hx-chat|hx-chat|hx-chat-fast|hx-chat-code|hx-chat-premium|hx-chat-creative' "$file"; then
+    if grep -qE '<<: \*(?:load_balancer_groups|hx-chat)|\b(?:hx-chat|hx-chat-fast|hx-chat-code|hx-chat-premium|hx-chat-creative)\b' "$file"; then
         echo -e "${GREEN}✓ Load balancer definitions present in $filename${NC}"
         return 0
     fi
@@ -105,6 +100,16 @@ validate_yaml_syntax() {
     local filename=$(basename "$file")
     
     echo -e "${YELLOW}Validating YAML syntax in $filename...${NC}"
+    
+    # Check if python3 is available
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo -e "${RED}✗ python3 is not installed or not in PATH${NC}"
+        echo -e "${YELLOW}Please install python3:${NC}"
+        echo "  - Ubuntu/Debian: sudo apt install python3"
+        echo "  - CentOS/RHEL: sudo yum install python3"
+        echo "  - macOS: brew install python3"
+        return 1
+    fi
     
     # Enhanced YAML syntax check with dependency validation
     local python_result

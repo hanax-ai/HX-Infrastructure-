@@ -175,7 +175,23 @@ If you ever need to drop DB again:
 BASE="/opt/HX-Infrastructure-/api-gateway"
 CFG="${BASE}/config/api-gateway/config.yaml"
 
-# Verify config file exists
+# Validate BASE directory exists
+if [[ -z "$BASE" ]]; then
+    echo "ERROR: BASE variable is not set" >&2
+    exit 1
+fi
+
+if [[ ! -d "$BASE" ]]; then
+    echo "ERROR: BASE directory does not exist: $BASE" >&2
+    exit 1
+fi
+
+# Validate CFG file exists
+if [[ -z "$CFG" ]]; then
+    echo "ERROR: CFG variable is not set" >&2
+    exit 1
+fi
+
 if [[ ! -f "$CFG" ]]; then
     echo "ERROR: Config file not found: $CFG" >&2
     exit 1

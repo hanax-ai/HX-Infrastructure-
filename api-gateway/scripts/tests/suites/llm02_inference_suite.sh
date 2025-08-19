@@ -16,7 +16,12 @@ echo
 
 # Configuration - Environment variables with fallbacks (SOLID: Dependency Inversion)
 API_BASE="${API_BASE:-http://localhost:4000}"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"
+# Security: MASTER_KEY must be set externally
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
+    echo "   Please export MASTER_KEY=your-secure-key before running this script" >&2
+    exit 1
+fi
 
 # Test timeout configuration (configurable via LLM_TEST_TIMEOUT env var, default: 300 seconds)
 LLM_TEST_TIMEOUT="${LLM_TEST_TIMEOUT:-300}"
@@ -25,6 +30,11 @@ if ! [[ "$LLM_TEST_TIMEOUT" =~ ^[0-9]+$ ]] || [[ "$LLM_TEST_TIMEOUT" -lt 1 ]]; t
     echo "Warning: Invalid LLM_TEST_TIMEOUT value '$LLM_TEST_TIMEOUT', using default 300 seconds" >&2
     LLM_TEST_TIMEOUT=300
 fi
+
+# Export variables so child test scripts inherit the values
+export API_BASE
+export MASTER_KEY
+export LLM_TEST_TIMEOUT
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

@@ -38,7 +38,12 @@ sudo tee "${TEST_DIR}/config/gateway.env" >/dev/null <<'EOF'
 GW_HOST="${GW_HOST:-192.168.10.39}"
 GW_PORT="${GW_PORT:-4000}"
 API_BASE="${API_BASE:-http://${GW_HOST}:${GW_PORT}}"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"
+# Security: MASTER_KEY must be set externally
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
+    echo "   Please export MASTER_KEY=your-secure-key before running this script" >&2
+    exit 1
+fi
 
 # Backend Servers (for routing tests)
 LLM01_IP="${LLM01_IP:-192.168.10.29}"

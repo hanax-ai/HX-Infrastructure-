@@ -27,7 +27,7 @@ curl -s http://127.0.0.1:4010/healthz | jq .
 # Result: {"ok": true, "note": "HX wrapper – proxy mode"} ✅
 
 # 6.2 Authentication & Reverse Proxy
-curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234"
+curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer $API_KEY"
 # Result: Proper proxy to LiteLLM, auth working ✅
 ```
 
@@ -35,18 +35,18 @@ curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234
 
 ```bash
 # 6.2 Models List
-curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234" | jq .
+curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer $API_KEY" | jq .
 # Result: {"error": {"message": "No connected db.", "type": "no_db_connection", "param": null, "code": "400"}} ❌
 
 # 6.3 Embeddings (input→prompt transformation working)
 curl -s http://127.0.0.1:4010/v1/embeddings \
-  -H "Authorization: Bearer sk-hx-dev-1234" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
   -d '{"model":"emb-premium","input":"HX-OK"}' | jq '.data[0].embedding | length'
 # Result: {"error": {"message": "No connected db.", "type": "no_db_connection", "param": null, "code": "400"}} ❌
 
 # 6.4 Chat Completions
 curl -s http://127.0.0.1:4010/v1/chat/completions \
-  -H "Authorization: Bearer sk-hx-dev-1234" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
   -H "X-HX-Model-Group: hx-chat" \
   -d '{"messages":[{"role":"user","content":"Return exactly the text: HX-OK"}],"temperature":0,"max_tokens":10}' \
   | jq -r '.choices[0].message.content' | grep -q 'HX-OK' && echo "✅ Deterministic chat OK" || echo "❌ Chat failed"
@@ -54,7 +54,7 @@ curl -s http://127.0.0.1:4010/v1/chat/completions \
 
 # Direct LiteLLM Test (confirms root cause)
 curl -s http://127.0.0.1:4000/v1/embeddings \
-  -H "Authorization: Bearer sk-hx-dev-1234" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
   -d '{"model":"emb-premium","prompt":"HX-OK"}' | jq .
 # Result: {"error": {"message": "No connected db.", "type": "no_db_connection", "param": null, "code": "400"}} ❌
 ```
@@ -113,18 +113,18 @@ curl -s http://127.0.0.1:4000/v1/embeddings \
 
 ```bash
 # Models endpoint returns JSON list
-curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer sk-hx-dev-1234" | jq '.data | length'
+curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer $API_KEY" | jq '.data | length'
 # Expected: Positive integer (number of models)
 
 # Embeddings with input→prompt transformation  
 curl -s http://127.0.0.1:4010/v1/embeddings \
-  -H "Authorization: Bearer sk-hx-dev-1234" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
   -d '{"model":"emb-premium","input":"HX-OK"}' | jq '.data[0].embedding | length'
 # Expected: 1024 (or embedding dimension)
 
 # Deterministic chat completion
 curl -s http://127.0.0.1:4010/v1/chat/completions \
-  -H "Authorization: Bearer sk-hx-dev-1234" -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
   -d '{"model":"hx-chat","messages":[{"role":"user","content":"Return exactly the text: HX-OK"}],"max_tokens":10,"temperature":0}' \
   | jq -r '.choices[0].message.content'
 # Expected: "HX-OK"

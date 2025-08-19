@@ -88,17 +88,41 @@ TimeoutStopSec=30
 
 ## Environment Configuration
 
-### Core Environment Variables
-```ini
-# Authentication token for API access
-Environment=MASTER_KEY=sk-hx-dev-1234
+### Secure Environment File Configuration
 
-# Configurable upstream LiteLLM endpoint
-Environment=HX_LITELLM_UPSTREAM=http://127.0.0.1:4000
+**Security Best Practice**: Use an EnvironmentFile instead of inline environment variables to protect sensitive credentials.
+
+```ini
+# Reference protected environment file
+EnvironmentFile=/etc/hx-gateway-ml.env
+```
+
+#### Environment File Setup
+
+Create the protected environment file:
+
+```bash
+# Create environment file with restricted permissions
+sudo tee /etc/hx-gateway-ml.env > /dev/null <<EOF
+# Authentication token for API access
+MASTER_KEY=your-secure-production-key
+
+# Configurable upstream LiteLLM endpoint  
+HX_LITELLM_UPSTREAM=http://127.0.0.1:4000
 
 # Python module resolution
-Environment=PYTHONPATH=/opt/HX-Infrastructure-/api-gateway/gateway/src
+PYTHONPATH=/opt/HX-Infrastructure-/api-gateway/gateway/src
+EOF
+
+# Set secure ownership and permissions
+sudo chown root:hx-gateway /etc/hx-gateway-ml.env
+sudo chmod 640 /etc/hx-gateway-ml.env
 ```
+
+**Security Notes**:
+- File is readable by root and the hx-gateway group only
+- Permissions 640 prevent other users from reading sensitive credentials
+- Environment variables are loaded securely at service startup
 
 ### Configuration File Access
 ```ini
@@ -201,10 +225,10 @@ journalctl -u hx-gateway-ml.service | grep -E "(POST|GET) /v1/"
 # Edit service configuration
 sudo systemctl edit hx-gateway-ml.service
 
-# Override environment variables:
-[Service]
-Environment=HX_MASTER_KEY=your-production-key
-Environment=HX_LITELLM_UPSTREAM=http://production-litellm:4000
+# Override environment variables in the EnvironmentFile:
+# Edit /etc/hx-gateway-ml.env:
+MASTER_KEY=your-production-key
+HX_LITELLM_UPSTREAM=http://production-litellm:4000
 ```
 
 ### Routing Configuration
@@ -341,11 +365,20 @@ MemoryLimit=512M
 - [ ] SSL/TLS termination (if external facing)
 
 ### Production Environment Variables
+
+**Use EnvironmentFile for production instead of inline Environment entries:**
+
 ```ini
-Environment=HX_MASTER_KEY=your-secure-production-key
-Environment=HX_LITELLM_UPSTREAM=http://internal-litellm:4000
-Environment=PYTHONPATH=/opt/HX-Infrastructure-/api-gateway/gateway/src
-Environment=LOG_LEVEL=INFO
+# Use secure environment file
+EnvironmentFile=/etc/hx-gateway-ml.env
+```
+
+**Example production /etc/hx-gateway-ml.env contents:**
+```bash
+MASTER_KEY=your-secure-production-key
+HX_LITELLM_UPSTREAM=http://internal-litellm:4000
+PYTHONPATH=/opt/HX-Infrastructure-/api-gateway/gateway/src
+LOG_LEVEL=INFO
 ```
 
 ### Monitoring Integration

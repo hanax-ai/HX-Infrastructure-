@@ -20,7 +20,21 @@ ORC_IP="192.168.10.31"
 GW_IP="192.168.10.39"     # this server must own this IP
 GW_HOST="0.0.0.0"
 GW_PORT="4000"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"   # override with env if needed
+# Security validation - REQUIRE MASTER_KEY to be set externally  
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
+    echo "   This must be set to a secure value before running deployment" >&2
+    echo "   Example: export MASTER_KEY='sk-hx-your-secure-production-key'" >&2
+    exit 1
+fi
+
+# Validate MASTER_KEY security
+if [[ "${MASTER_KEY}" == *"sk-hx-dev"* ]] || [[ "${MASTER_KEY}" == *"1234"* ]] || [[ ${#MASTER_KEY} -lt 32 ]]; then
+    echo "❌ ERROR: Insecure MASTER_KEY detected" >&2
+    echo "   Development keys or short keys are not allowed in deployment" >&2
+    echo "   Please use a secure, randomly generated key (minimum 32 characters)" >&2
+    exit 1
+fi
 
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
 SERVICE_FILE="/etc/systemd/system/hx-litellm-gateway.service"
@@ -225,7 +239,7 @@ echo "--- logs (last 20) ---"
 sudo journalctl -u hx-litellm-gateway -n 20 --no-pager || true
 echo "--- API health (/v1/models) ---"
 curl -fsS --max-time 10 http://127.0.0.1:4000/v1/models \
-  -H "Authorization: Bearer ${MASTER_KEY:-sk-hx-dev-1234}" \
+  -H "Authorization: Bearer ${MASTER_KEY}" \
   -H "Content-Type: application/json" >/dev/null \
   && echo "✅ Gateway responding" || { echo "❌ Gateway not responding"; exit 1; }
 EOF

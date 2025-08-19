@@ -9,7 +9,22 @@
 set -euo pipefail
 
 readonly SCRIPT_NAME="$(basename "$0")"
-readonly SECURITY_CONFIG_DIR="${SECURITY_CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")"/../../config/security 2>/dev/null && pwd || echo "/opt/HX-Infrastructure-/api-gateway/config/security")}"
+
+# Determine SECURITY_CONFIG_DIR separately to avoid masking cd errors (SC2155)
+if [[ -n "${SECURITY_CONFIG_DIR:-}" ]]; then
+    readonly SECURITY_CONFIG_DIR="${SECURITY_CONFIG_DIR}"
+else
+    # Try to determine the config directory, fall back to literal path if cd fails
+    config_dir=""
+    if cd "$(dirname "${BASH_SOURCE[0]}")"/../../config/security 2>/dev/null; then
+        config_dir="$(pwd)"
+        cd - >/dev/null
+        readonly SECURITY_CONFIG_DIR="$config_dir"
+    else
+        readonly SECURITY_CONFIG_DIR="/opt/HX-Infrastructure-/api-gateway/config/security"
+    fi
+fi
+
 readonly TOKEN_FILE="${TOKEN_FILE:-$SECURITY_CONFIG_DIR/.test-tokens}"
 
 # Single Responsibility: Token validation only

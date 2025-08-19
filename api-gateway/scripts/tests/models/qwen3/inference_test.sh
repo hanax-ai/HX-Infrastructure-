@@ -47,15 +47,17 @@ for i in "${!test_prompts[@]}"; do
     echo "Test $((i+1))/$total_tests: Testing inference capability"
     echo "Prompt: $(echo "$prompt" | head -c 50)..."
     
+    payload=$(jq -n \
+        --arg model "$MODEL_NAME" \
+        --arg prompt "$prompt" \
+        --argjson temperature 0.2 \
+        --argjson max_tokens 120 \
+        '{model:$model, messages:[{role:"user", content:$prompt}], temperature:$temperature, max_tokens:$max_tokens}')
     response=$(curl -s --max-time 35 "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${MASTER_KEY}" \
         -H "Content-Type: application/json" \
-        -d "{
-            \"model\": \"${MODEL_NAME}\",
-            \"messages\": [{\"role\": \"user\", \"content\": \"${prompt}\"}],
-            \"temperature\": 0.2,
-            \"max_tokens\": 120
-        }" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
+        --data-binary "$payload" \
+      | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
     
     if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 5 ]]; then
         echo "✅ PASS: Generated $(echo "$response" | wc -w) words"

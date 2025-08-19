@@ -12,7 +12,12 @@ done
 # SOLID: Single Responsibility - Test ONLY qwen3 basic chat completion
 # Configuration - Environment variables with fallbacks (SOLID: Dependency Inversion)
 API_BASE="${API_BASE:-http://localhost:4000}"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"
+# Security: MASTER_KEY must be set externally
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
+    echo "   Please export MASTER_KEY=your-secure-key before running this script" >&2
+    exit 1
+fi
 
 MODEL_NAME="${MODEL_NAME:-llm01-qwen3-1.7b}"
 TEST_PROMPT="What is 2+2?"
@@ -25,15 +30,20 @@ echo
 
 # Test basic chat completion
 echo "Testing chat completion..."
-response=$(curl -fS --max-time 30 "${API_BASE}/v1/chat/completions" \
+response=$(jq -n \
+    --arg model "$MODEL_NAME" \
+    --arg prompt "$TEST_PROMPT" \
+    --argjson temperature 0 \
+    --argjson max_tokens 50 \
+    '{
+        "model": $model,
+        "messages": [{"role": "user", "content": $prompt}],
+        "temperature": $temperature,
+        "max_tokens": $max_tokens
+    }' | curl -fS --max-time 30 "${API_BASE}/v1/chat/completions" \
     -H "Authorization: Bearer ${MASTER_KEY}" \
     -H "Content-Type: application/json" \
-    -d "{
-        \"model\": \"${MODEL_NAME}\",
-        \"messages\": [{\"role\": \"user\", \"content\": \"${TEST_PROMPT}\"}],
-        \"temperature\": 0,
-        \"max_tokens\": 50
-    }" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
+    --data-binary @- | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
 
 if [[ "$response" != "ERROR" && -n "$response" && "$response" == *"4"* ]]; then
     echo "✅ SUCCESS: Chat completion working and contains expected answer"
