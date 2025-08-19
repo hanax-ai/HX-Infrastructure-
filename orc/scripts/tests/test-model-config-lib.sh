@@ -5,6 +5,14 @@ set -uo pipefail
 
 # Source the library under test
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Sanity check: verify library file exists and is readable
+if [[ ! -r "$SCRIPT_DIR/../lib/model-config.sh" ]]; then
+    echo "❌ ERROR: Required library not found or not readable: $SCRIPT_DIR/../lib/model-config.sh" >&2
+    echo "   Please ensure the model-config.sh library is properly installed." >&2
+    exit 1
+fi
+
 source "$SCRIPT_DIR/../lib/model-config.sh"
 
 # Test counters

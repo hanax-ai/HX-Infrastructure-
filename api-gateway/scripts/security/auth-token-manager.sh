@@ -81,9 +81,6 @@ store_test_token() {
     # Write token without trailing newline
     printf '%s' "$token" > "$temp_file"
     
-    # Ensure data is written to disk
-    sync || true
-    
     # Set final permissions and ownership
     chmod 600 "$temp_file"
     chown hx-gateway:hx-gateway "$temp_file" 2>/dev/null || true
@@ -102,28 +99,63 @@ store_test_token() {
 # Single Responsibility: Token retrieval only
 get_test_token() {
     if [[ -f "$TOKEN_FILE" ]]; then
-        # Safely read token file without executing code
-        local token_content
-        token_content=$(cat "$TOKEN_FILE" 2>/dev/null || echo "")
+        # Safely read token file line by line without executing code
+        local token_value=""
+        local line
         
-        # If it looks like a shell assignment, extract the value
-        if [[ "$token_content" =~ ^[[:space:]]*AUTH_TOKEN[[:space:]]*=[[:space:]]*([^#]*)(#.*)?$ ]]; then
-            local token_value="${BASH_REMATCH[1]}"
-            # Trim leading and trailing whitespace
-            token_value="${token_value#"${token_value%%[![:space:]]*}"}"
-            token_value="${token_value%"${token_value##*[![:space:]]}"}"
-            # Remove surrounding quotes if present (single or double)
-            if [[ "$token_value" =~ ^\"(.*)\"$ ]] || [[ "$token_value" =~ ^\'(.*)\'$ ]]; then
-                token_value="${BASH_REMATCH[1]}"
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            # Skip empty lines and comments
+            [[ -z "$line" ]] && continue
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            
+            # Look for AUTH_TOKEN assignment with optional "export" prefix
+            if [[ "$line" =~ ^([[:space:]]*export[[:space:]]+)?AUTH_TOKEN[[:space:]]*=[[:space:]]*([^#]*)(#.*)?$ ]]; then
+                token_value="${BASH_REMATCH[2]}"
+                # Trim leading and trailing whitespace
+                token_value="${token_value#"${token_value%%[![:space:]]*}"}"
+                token_value="${token_value%"${token_value##*[![:space:]]}"}"
+                # Remove surrounding quotes if present (single or double)
+                if [[ "$token_value" =~ ^\"(.*)\"$ ]] || [[ "$token_value" =~ ^\'(.*)\'$ ]]; then
+                    token_value="${BASH_REMATCH[1]}"
+                fi
+                # Explicitly strip trailing newlines and carriage returns
+                token_value="${token_value%$'\n'}"
+                token_value="${token_value%$'\r'}"
+                # Only return if token is non-empty
+                if [[ -n "$token_value" ]]; then
+                    echo "$token_value"
+                    return 0
+                fi
             fi
-            echo "$token_value"
-        else
-            # Assume it's a raw token
-            echo "$token_content"
-        fi
-    else
-        echo "${AUTH_TOKEN:-}"
+        done < "$TOKEN_FILE"
+        
+        # If no AUTH_TOKEN= found, treat entire first non-empty line as raw token
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" ]] && continue
+            [[ "$line" =~ ^[[:space:]]*# ]] && continue
+            # Strip trailing newlines and carriage returns from raw token
+            line="${line%$'\n'}"
+            line="${line%$'\r'}"
+            # Trim whitespace from raw token
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+            # Only return if token is non-empty
+            if [[ -n "$line" ]]; then
+                echo "$line"
+                return 0
+            fi
+        done < "$TOKEN_FILE"
     fi
+    
+    # Fallback to environment variable AUTH_TOKEN
+    if [[ -n "${AUTH_TOKEN:-}" ]]; then
+        echo "$AUTH_TOKEN"
+        return 0
+    fi
+    
+    # No token found anywhere - fail with clear error
+    echo "ERROR: No authentication token found in $TOKEN_FILE or AUTH_TOKEN environment variable" >&2
+    return 1
 }
 
 # Single Responsibility: Token validation status only
@@ -202,8 +234,8 @@ main() {
             ;;
         "store")
             if [[ -z "${2:-}" ]]; then
-                echo "ERROR: Token required for store operation"
-                echo "Usage: $SCRIPT_NAME store <token>"
+                echo "ERROR: Token required for store operation" >&2
+                echo "Usage: $SCRIPT_NAME store <token>" >&2
                 exit 1
             fi
             store_test_token "$2"

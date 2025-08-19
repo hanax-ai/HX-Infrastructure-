@@ -6,14 +6,14 @@ set -euo pipefail
 API_BASE="${API_BASE:-http://localhost:4000}"
 
 # Require explicit authentication token
-if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
-    echo "❌ Either AUTH_TOKEN or MASTER_KEY environment variable must be set"
+if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${HX_MASTER_KEY:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ Either AUTH_TOKEN, HX_MASTER_KEY, or MASTER_KEY environment variable must be set"
     echo "   Please provide authentication credentials"
     exit 1
 fi
 
-# Prefer AUTH_TOKEN if available, otherwise use MASTER_KEY
-AUTH_KEY="${AUTH_TOKEN:-${MASTER_KEY}}"
+# Prefer AUTH_TOKEN, then HX_MASTER_KEY, then MASTER_KEY
+AUTH_KEY="${AUTH_TOKEN:-${HX_MASTER_KEY:-${MASTER_KEY}}}"
 
 MODEL_NAME="llm02-gemma2-2b"
 
@@ -56,7 +56,7 @@ for i in "${!test_prompts[@]}"; do
         }')
     
     # Capture both response body and HTTP status code
-    curl_output=$(curl -sf --max-time 60 "${API_BASE}/v1/chat/completions" \
+    curl_output=$(curl -sf --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
           -H "Authorization: Bearer ${AUTH_KEY}" \
           -H "Content-Type: application/json" \
           -H "Accept: application/json" \

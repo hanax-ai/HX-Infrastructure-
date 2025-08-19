@@ -17,13 +17,14 @@ fi
 API_BASE="${API_BASE:-http://localhost:4000}"
 
 # Validate required authentication
-if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
-    echo "ERROR: Either AUTH_TOKEN or MASTER_KEY environment variable is required" >&2
+if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${HX_MASTER_KEY:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ Either AUTH_TOKEN, HX_MASTER_KEY, or MASTER_KEY environment variable must be set"
+    echo "   Please provide authentication credentials"
     exit 1
 fi
 
-# Prefer AUTH_TOKEN over MASTER_KEY
-AUTH_KEY="${AUTH_TOKEN:-${MASTER_KEY}}"
+# Prefer AUTH_TOKEN, then HX_MASTER_KEY, then MASTER_KEY
+AUTH_KEY="${AUTH_TOKEN:-${HX_MASTER_KEY:-${MASTER_KEY}}}"
 
 MODEL_NAME="llm02-deepcoder-14b"
 
@@ -68,12 +69,24 @@ for i in "${!test_prompts[@]}"; do
     # Create temporary file for response body
     temp_response="/tmp/deepcoder_resp_body.$$"
     
-    # Capture HTTP status code and response body separately
-    http_status=$(curl -s --max-time 60 -w "%{http_code}" -o "$temp_response" \
+    # Capture HTTP status code and response body separately with proper error handling
+    set +e  # Temporarily disable exit on error to capture curl's exit status
+    http_status=$(curl -sS --max-time "${TIMEOUT:-60}" -w "%{http_code}" -o "$temp_response" \
         "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${AUTH_KEY}" \
         -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
         --data-binary "$payload")
+    CURL_EXIT=$?
+    set -e  # Re-enable exit on error
+    
+    # Handle transport errors separately from HTTP errors
+    if [[ $CURL_EXIT -ne 0 ]]; then
+        echo "❌ FAIL: Transport error - curl failed with exit code $CURL_EXIT"
+        echo "   This indicates network connectivity or timeout issues"
+        rm -f "$temp_response"
+        continue
+    fi
     
     # Validate HTTP status code first
     if [[ "$http_status" =~ ^2[0-9][0-9]$ ]]; then

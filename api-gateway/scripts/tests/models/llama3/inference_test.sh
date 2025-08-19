@@ -6,14 +6,14 @@ set -euo pipefail
 API_BASE="${API_BASE:-http://localhost:4000}"
 
 # Require explicit authentication token
-if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
-    echo "❌ Either AUTH_TOKEN or MASTER_KEY environment variable must be set"
+if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${HX_MASTER_KEY:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ Either AUTH_TOKEN, HX_MASTER_KEY, or MASTER_KEY environment variable must be set"
     echo "   Please provide authentication credentials"
     exit 1
 fi
 
-# Prefer AUTH_TOKEN if available, otherwise use MASTER_KEY
-AUTH_KEY="${AUTH_TOKEN:-${MASTER_KEY}}"
+# Prefer AUTH_TOKEN, then HX_MASTER_KEY, then MASTER_KEY
+AUTH_KEY="${AUTH_TOKEN:-${HX_MASTER_KEY:-${MASTER_KEY}}}"
 
 MODEL_NAME="llm01-llama3.2-3b"
 
@@ -66,14 +66,68 @@ for i in "${!test_prompts[@]}"; do
         continue
     fi
 
-    # Validate response
-    if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 20 ]]; then
-        echo "✅ PASS: Generated $(echo "$response" | wc -w) words"
-        echo "Preview: $(echo "$response" | head -c 100)..."
-        ((passed++))
-    else
-        echo "❌ FAIL: No valid response generated"
+    # Enhanced response validation
+    if [[ "$response" == "ERROR" ]]; then
+        echo "❌ FAIL: HTTP or parse error"
+        continue
     fi
+    
+    # Trim whitespace from response
+    response="$(echo "$response" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    
+    # Check if response is empty after trimming
+    if [[ -z "$response" ]]; then
+        echo "❌ FAIL: Empty response after trimming whitespace"
+        continue
+    fi
+    
+    # Check for empty/only punctuation (only punctuation and whitespace)
+    if [[ "$response" =~ ^[[:punct:][:space:]]*$ ]]; then
+        echo "❌ FAIL: Response contains only punctuation/whitespace"
+        continue
+    fi
+    
+    # Check for empty JSON patterns
+    if [[ "$response" =~ ^(\{\}|\[\]|null|""|''|\{\s*\}|\[\s*\])$ ]]; then
+        echo "❌ FAIL: Response is empty JSON structure"
+        continue
+    fi
+    
+    # Check if response starts with JSON markers (raw JSON leak)
+    if [[ "$response" =~ ^[\{\[] ]]; then
+        echo "❌ FAIL: Response appears to be raw JSON"
+        continue
+    fi
+    
+    # Check for common AI-proxy phrases (blacklist)
+    if [[ "$response" =~ (I am an AI|I\'m an AI|I\'m an artificial|I am an artificial|I\'m a language model|I am a language model|I\'m just an AI|I am just an AI|I\'m Claude|I am Claude|I\'m ChatGPT|I am ChatGPT|I\'m GPT|I am GPT) ]]; then
+        echo "❌ FAIL: Response contains AI self-identification phrases"
+        continue
+    fi
+    
+    # Check for very short repeated tokens
+    if [[ "$response" =~ ^(.{1,3})\1{3,}$ ]]; then
+        echo "❌ FAIL: Response contains excessive repetition of short tokens"
+        continue
+    fi
+    
+    # Check minimum length requirement (existing check)
+    if [[ ${#response} -le 20 ]]; then
+        echo "❌ FAIL: Response too short (${#response} chars, need >20)"
+        continue
+    fi
+    
+    # Check minimum word count
+    word_count=$(echo "$response" | wc -w)
+    if [[ $word_count -lt 5 ]]; then
+        echo "❌ FAIL: Response too few words ($word_count words, need ≥5)"
+        continue
+    fi
+    
+    # All validation checks passed
+    echo "✅ PASS: Generated $word_count words"
+    echo "Preview: $(echo "$response" | head -c 100)..."
+    ((passed++))
 done
 
 echo

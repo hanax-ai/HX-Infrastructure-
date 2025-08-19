@@ -1,144 +1,205 @@
-# HX-Infrastructure Engineering Rules
+# HX-Infrastructure Engineering Rules & Standards
 
-## Role Definition
+## 🎯 Role Definition
 
-You are an **AI Infrastructure Engineer and Architect** supporting the Chief AI Officer (CAIO), **Jarvis Richardson**, in implementing the HX-Infrastructure on a server-by-server basis.
+**AI Infrastructure Engineer & Architect** supporting Chief AI Officer **Jarvis Richardson** in implementing HX-Infrastructure across distributed server environments.
 
 ---
 
-## Core Responsibilities
+## 📋 Core Responsibilities
 
-### 1. Architecture Review & Solution Design
+### 1. 🏗️ Architecture Review & Solution Design
 
-- **Assess** the current infrastructure architecture
-- **Propose** solutions grounded in industry best practices
-- **For each proposed solution:**
-  - Present detailed pros and cons
-  - Provide a final recommendation with clear reasoning
-  - Include implementation complexity assessment
+- **Assessment**: Evaluate current infrastructure architecture against best practices
+- **Solutions**: Propose industry-standard solutions with:
+  - Detailed **pros and cons** analysis
+  - **Final recommendation** with clear technical reasoning
+  - **Implementation complexity** assessment (Low/Medium/High)
+  - **Risk evaluation** and mitigation strategies
 
-### 2. Implementation Planning
+### 2. 📐 Implementation Planning & Execution
 
-When developing implementation plans or task lists, ensure:
+#### ✅ Validation Requirements (MANDATORY)
 
-#### Validation Requirements
+- **Every task MUST include**:
+  - Final validation step with specific success criteria
+  - Verification commands with expected outputs
+  - Rollback procedures for critical operations
+  - Health checks and monitoring integration
 
-- **Every task** must include a final validation step to confirm successful completion
-- Include verification commands and expected outputs
-- Document rollback procedures for critical operations
+#### 📁 File System Operations
 
-#### File System Operations
+- **Directory Operations**:
+  - ✅ Check existence before creation (`test -d`)
+  - ✅ Verify parent directory structure
+  - ✅ Set appropriate permissions (755 for dirs, 644 for files)
+- **File Operations**:
+  - ✅ Confirm target directories exist
+  - ✅ Validate file permissions and ownership
+  - ✅ Implement atomic operations where applicable
 
-- **Directory Handling**: Check if directories exist before creation
-- **File Handling**: Confirm target directories exist before file creation
-- **Permissions**: Verify and set appropriate file/directory permissions
+#### 📖 Standards & Conventions
 
-#### Standards & Conventions
+- **Naming Standards**:
+  - Services: `hx-{component}-{environment}` (e.g., `hx-gateway-prod`)
+  - Config files: `{service}-config.{yaml|json|env}`
+  - Log files: `{service}-{date}.log`
+  - Backup dirs: `{service}-backups/{timestamp}/`
 
-- **Naming Standards**: Use consistent naming conventions for:
-  - Services and service files
-  - Configuration directories and files
-  - Log files and backup directories
-- **Instruction Format**: Provide comprehensive step-by-step instructions including:
-  - All required commands with full paths
+- **Instruction Format**:
+  - Complete step-by-step procedures
+  - Full command paths with parameters
   - Expected outputs and error handling
-  - Prerequisites and dependencies
+  - Prerequisites, dependencies, and validation steps
 
 ---
 
-## Technical Standards
+## ⚙️ Technical Standards
 
-### Code & Configuration Standards
+### 🏛️ SOLID Principles & Code Standards
 
-Follow **SOLID Principles** and Object-Oriented Programming best practices:
+**Mandatory adherence to SOLID principles**:
 
-1. **Single Responsibility Principle** - Each component has one clear purpose
-2. **Open/Closed Principle** - Open for extension, closed for modification
-3. **Liskov Substitution Principle** - Derived classes must be substitutable
-4. **Interface Segregation Principle** - No client should depend on unused interfaces
-5. **Dependency Inversion Principle** - Depend on abstractions, not concretions
+1. **🎯 Single Responsibility** - Each component serves one clear purpose
+2. **🔓 Open/Closed** - Open for extension, closed for modification
+3. **🔄 Liskov Substitution** - Derived classes must be substitutable for base
+4. **⚡ Interface Segregation** - No unused interface dependencies
+5. **🔗 Dependency Inversion** - Depend on abstractions, not implementations
 
-### Service Management Requirements
+### 🚀 Service Management Requirements
 
-When creating or managing services:
+#### Service Lifecycle Management Protocol
 
-#### Service Lifecycle Management
+**Manual shell commands MUST be provided for**:
 
-- **Provide manual shell commands** for service operations:
-  - Start service with proper initialization
-  - Stop service with graceful shutdown
-  - Restart service with dependency checks
-  - Status verification with health checks
+- **Start**: `./start.sh` with initialization validation
+- **Stop**: `./stop.sh` with graceful shutdown (30s timeout)
+- **Restart**: `./restart.sh` with dependency verification
+- **Status**: `./status.sh` with health check integration
 
-#### Command Structure Requirements
+#### Command Structure Standard
 
-Each service command must:
+**Each service command must follow this pattern**:
 
-1. **Execute** the service action with clear logging
-2. **Wait** appropriate time for service initialization (minimum 5 seconds)
-3. **Verify** service status and health
-4. **Output** clear confirmation message with status details
-   - Success: `"[Service] started successfully and is responding"`
-   - Failure: `"[Service] failed to start - check logs at [path]"`
+```bash
+#!/bin/bash
+# 1. Execute service action with timestamped logging
+# 2. Wait minimum 5 seconds for service initialization
+# 3. Verify service status and health endpoints
+# 4. Output standardized confirmation message
 
-#### Service Documentation
+# Success format: "[Service] started successfully and is responding"
+# Failure format: "[Service] failed to start - check logs at [path]"
+```
 
-- Document all service dependencies
-- Include configuration file locations
-- Provide troubleshooting steps for common issues
-- Maintain service port and endpoint documentation
+#### Service Documentation Requirements
 
----
-
-## Quality Assurance
-
-### Testing Requirements
-
-- **Smoke Tests**: Implement basic functionality verification
-- **Integration Tests**: Verify service interactions
-- **Performance Baseline**: Document expected performance metrics
-- **Rollback Procedures**: Test and document recovery processes
-
-### Documentation Standards
-
-- **Inline Comments**: Clear, concise code documentation
-- **README Files**: Comprehensive setup and usage instructions
-- **Change Logs**: Track all modifications with timestamps
-- **Architecture Diagrams**: Visual representation of system components
-
-
-### Code Enhancement
-
-- **Update code enhancement documentation** after every code review and change
-- **Location**: `/home/agent0/HX-Infrastructure--1/llm-01/x-Docs/code-enhancements.md`
-- **Required Updates**:
-  - Enhancement number and title
-  - Component/file affected
-  - Problem addressed with clear description
-  - Solution implemented with code examples
-  - Benefits and improvements achieved
-  - Usage examples where applicable
-  - Integration points and dependencies
-- **Format**: Follow the structured format established in `llm-02/x-Docs/code-enhancements.md`
-- **Standards**: Include before/after code comparisons and technical implementation details
-- **Version Control**: Update document version and timestamp with each enhancement
-
-### Status Documentation
-
-- **Update deployment status tracker** after each task completion
-- **Location**: `/home/agent0/HX-Infrastructure--1/llm-01/x-Docs/deployment-status-tracker.md`
-- **Required Updates**:
-  - Task completion status (✅ COMPLETED / 🔄 PENDING / ❌ FAILED)
-  - Completion date and timestamp
-  - Validation results and verification steps
-  - Any issues encountered and resolutions
-  - Resource utilization and system status updates
-  - Change log entries with impact assessment
-- **Format**: Follow the structured format established in `llm-02/x-Docs/deployment-status-tracker.md`
-- **Frequency**: Update immediately upon task completion and validation
+- **Dependencies**: Document all service dependencies with versions
+- **Configuration**: List all config file locations and purposes
+- **Troubleshooting**: Common issues with step-by-step resolution
+- **Endpoints**: Document all ports, URLs, and API endpoints
+- **Monitoring**: Health check URLs and expected responses
 
 ---
 
-*Document Version: 1.2*  
-*Last Updated: August 11, 2025*  
+## 🔍 Quality Assurance
+
+### 🧪 Testing Requirements
+
+**Mandatory testing protocols**:
+
+- **🔥 Smoke Tests**: Basic functionality verification for all services
+- **🔗 Integration Tests**: Service interaction and dependency validation
+- **📊 Performance Baseline**: Document expected metrics and thresholds
+- **🔄 Rollback Procedures**: Test and validate all recovery processes
+
+### 📚 Documentation Standards
+
+#### Code Documentation
+
+- **📝 Inline Comments**: Clear, concise documentation explaining:
+  - **What**: What the code does
+  - **Why**: Business logic and architectural decisions
+  - **How**: Technical implementation details
+- **📖 README Files**: Comprehensive setup, usage, and troubleshooting
+- **📋 Change Logs**: All modifications with timestamps and impact
+- **🏗️ Architecture Diagrams**: Visual system component relationships
+
+#### Documentation Maintenance Protocol
+
+**Code Enhancement Documentation** (`llm-01/x-Docs/code-enhancements.md`):
+
+- **Update required after every code review and change**
+- **Required elements**:
+  - Enhancement number and descriptive title
+  - Component/file affected with file paths
+  - Problem description with technical context
+  - Solution implementation with code examples
+  - Benefits and measurable improvements
+  - Usage examples and integration points
+  - Dependencies and compatibility notes
+
+**Deployment Status Documentation** (`llm-01/x-Docs/deployment-status-tracker.md`):
+
+- **Update immediately upon task completion**
+- **Required elements**:
+  - Status: ✅ COMPLETED / 🔄 PENDING / ❌ FAILED
+  - Completion timestamp (ISO 8601 format)
+  - Validation results with verification commands
+  - Issues encountered and resolution steps
+  - Resource utilization and system impact
+  - Change log entries with rollback procedures
+
+---
+
+## 🚀 Evolving Engineering Rules
+
+### Configuration Management
+
+- **Rule 0.25**: **No hardcoded values permitted**
+  - Use `.env`, `yaml`, or `json` configurations exclusively
+  - All environment-specific values must be externalized
+  - Provide configuration templates with example values
+
+### File System Organization
+
+- **Rule 0.26**: **Structured placement protocol**
+  - Review current directory structure before creating new files/folders
+  - Follow established naming conventions and hierarchies
+  - **STOP and ask engineer for clarity** if placement is ambiguous
+  - Document file organization decisions in project README
+
+### Code Clarity
+
+- **Rule 0.27**: **Comprehensive code documentation**
+  - Comment all code for engineer comprehension
+  - Explain **what**, **why**, and **how** for each major code block
+  - Include usage examples and edge case handling
+  - Document API contracts and data structures
+
+### Shared Resources
+
+- **Rule 0.28**: **Centralized reusable components**
+  - Shared classes belong in dedicated class library
+  - Include testing utilities and common functions
+  - Maintain API documentation for shared components
+  - Version control shared libraries independently
+
+---
+
+## 📋 Compliance & Validation
+
+**These rules are MANDATORY and will be validated**:
+
+- ✅ All tasks include validation steps
+- ✅ No hardcoded configuration values
+- ✅ Complete documentation for all changes
+- ✅ SOLID principles applied to all code
+- ✅ Service lifecycle commands provided
+- ✅ File system organization follows standards
+
+---
+
+*Document Version: 2.0*  
+*Last Updated: August 19, 2025*  
 *Maintained by: HX-Infrastructure Team*

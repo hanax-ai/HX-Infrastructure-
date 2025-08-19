@@ -12,11 +12,14 @@ if ! sudo systemctl cat "$SVC" >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "→ Starting service for validation..."
-if sudo systemctl start "$SVC"; then
-    echo "   Service start command succeeded"
+echo "→ Clearing any previous failed state..."
+sudo systemctl reset-failed "$SVC" 2>/dev/null || true
+
+echo "→ Restarting service for validation..."
+if sudo systemctl restart "$SVC"; then
+    echo "   Service restart command succeeded"
 else
-    echo "❌ Service start command failed"
+    echo "❌ Service restart command failed"
     exit 1
 fi
 
@@ -36,7 +39,7 @@ done
 if [[ "$timeout_reached" == "true" ]]; then
     echo "❌ Timed out waiting for $SVC to complete"
     echo "Service is still active after 60 seconds"
-    sudo systemctl status "$SVC" --no-pager
+    SYSTEMD_PAGER=cat sudo systemctl status "$SVC" --no-pager | sed -E 's/(HX_MASTER_KEY|Bearer [A-Za-z0-9_-]+|[Aa]pi[Kk]ey[[:space:]]*[:=][[:space:]]*[A-Za-z0-9_-]{8,})/[REDACTED]/g'
     exit 1
 fi
 
@@ -46,17 +49,19 @@ if sudo systemctl show "$SVC" --property=ExecMainStatus --value | grep -q "^0$";
 else
     echo "❌ Service failed with non-zero exit code"
     echo "Recent logs:"
-    sudo journalctl -u "$SVC" -n 10 --no-pager
+    SYSTEMD_PAGER=cat sudo journalctl -u "$SVC" -n 200 -o cat --no-pager | sed -E 's/(HX_MASTER_KEY|Bearer [A-Za-z0-9_-]+|[Aa]pi[Kk]ey[[:space:]]*[:=][[:space:]]*[A-Za-z0-9_-]{8,})/[REDACTED]/g'
     exit 1
 fi
 
 echo "→ Showing test results summary..."
 
-# Capture journalctl output and check for errors
 # Capture journalctl output and check for errors (avoid masking exit code with assignment)
 tmp_journal="$(mktemp)"
-if ! sudo journalctl -u "$SVC" --no-pager -n 200 -o cat >"$tmp_journal" 2>&1; then
-    journalctl_exit_code=$?
+trap 'rm -f "$tmp_journal"' EXIT
+# shellcheck disable=SC2024
+sudo journalctl -u "$SVC" --no-pager -n 200 -o cat >"$tmp_journal" 2>&1
+journalctl_exit_code=$?
+if [[ $journalctl_exit_code -ne 0 ]]; then
     echo "❌ ERROR: Failed to retrieve service logs via journalctl (exit code: $journalctl_exit_code)"
     echo "Raw journalctl output:"
     cat "$tmp_journal"
@@ -67,7 +72,7 @@ test_results="$(cat "$tmp_journal")"
 rm -f "$tmp_journal"
 
 # Filter for test results and handle empty results gracefully
-filtered_results=$(echo "$test_results" | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -20)
+filtered_results=$(echo "$test_results" | grep -E "(Test Suite Results|SUCCESS|FAIL|PASS|ERROR)" | tail -20)
 if [[ -n "$filtered_results" ]]; then
     echo "$filtered_results"
 else

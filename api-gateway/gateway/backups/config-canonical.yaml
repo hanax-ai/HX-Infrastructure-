@@ -19,22 +19,22 @@ load_balancer_groups: &load_balancer_groups
   - &hx_chat_fast
     model_name: hx-chat-fast
     litellm_params: { model: "ollama/qwen3:1.7b", api_base: *llm01_api_base }
-  
+
   # Balanced performance
   - &hx_chat
     model_name: hx-chat
     litellm_params: { model: "ollama/llama3.2:3b", api_base: *llm01_api_base }
-  
+
   # Code-specialized
   - &hx_chat_code
     model_name: hx-chat-code
     litellm_params: { model: "ollama/deepcoder:14b", api_base: *llm02_api_base }
-  
+
   # High-quality reasoning
   - &hx_chat_premium
     model_name: hx-chat-premium
     litellm_params: { model: "ollama/cogito:32b", api_base: *llm02_api_base }
-  
+
   # Creative/conversational
   - &hx_chat_creative
     model_name: hx-chat-creative

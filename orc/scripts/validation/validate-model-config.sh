@@ -157,7 +157,8 @@ verify_model_inclusion() {
     local inclusion_errors=false
     while IFS= read -r line; do
         if [[ "$line" =~ ^[[:space:]]*OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*= ]] && [[ ! "$line" =~ ^[[:space:]]*OLLAMA_MODELS_ ]]; then
-            local var_name=$(echo "$line" | sed 's/^[[:space:]]*\([^=]*\)[[:space:]]*=.*/\1/')
+            local var_name
+            var_name=$(echo "$line" | sed 's/^[[:space:]]*\([^=]*\)[[:space:]]*=.*/\1/')
             
             # Extract model value
             local model_value
@@ -212,8 +213,9 @@ compute_total_size() {
     local models_found=0
     local total_display=""
     
-    # Cache list output once
-    local _ollama_list="$(ollama list 2>/dev/null || true)"
+    # Cache list output once with locale stability
+    local _ollama_list
+    _ollama_list="$(LC_ALL=C ollama list 2>/dev/null || true)"
     
     while IFS= read -r line; do
         if [[ "$line" =~ ^[[:space:]]*OLLAMA_MODEL_[A-Za-z0-9_]+[[:space:]]*= ]] && [[ ! "$line" =~ ^[[:space:]]*OLLAMA_MODELS_ ]]; then
@@ -230,10 +232,12 @@ compute_total_size() {
             local search_pattern
             if [[ "$model_ref" == *"@"* ]]; then
                 # SHA reference: mistral-small3.2@sha256:... -> look for mistral-small3.2*
-                local base_name=$(echo "$model_ref" | cut -d'@' -f1)
+                local base_name
+                base_name=$(echo "$model_ref" | cut -d'@' -f1)
                 search_pattern="$base_name"
                 # Try to find any version of this model in ollama list using exact field matching
-                local found_line=$(echo "$_ollama_list" | awk -v base_name="$base_name" '$1 ~ "^" base_name {print; exit}' || echo "")
+                local found_line
+                found_line=$(echo "$_ollama_list" | awk -v base_name="$base_name" '$1 ~ "^" base_name {print; exit}' || echo "")
                 if [[ -n "$found_line" ]]; then
                     model_name=$(echo "$found_line" | awk '{print $1}')  # Use exact name from ollama
                 else
@@ -245,11 +249,74 @@ compute_total_size() {
                 search_pattern="$model_ref"
             fi
             
-            # Try to get size from ollama list using robust awk matching
+            # Try to get size from ollama list using robust pattern-based matching
             local size_info
             size_info=$(echo "$_ollama_list" | awk -v pattern="$search_pattern" '
-                NR > 1 && ($1 == pattern || $1 ~ ("^" pattern "$") || $1 ~ ("^" pattern ":")) {
-                    print $3 " " $4
+                NR > 1 && ($1 == pattern || index($1, pattern ":") == 1) {
+                    # Strategy 1: Look for size pattern (number + unit) with space separation
+                    size_found = ""
+                    for (i = 1; i <= NF; i++) {
+                        if ($i ~ /^[0-9]+(\.[0-9]+)?$/ && $(i+1) ~ /^([KMGT]?i?B)$/i) {
+                            size_found = $i " " $(i+1)
+                            break
+                        }
+                    }
+                    
+                    # Strategy 2: Look for compact size pattern (number+unit without space)
+                    if (size_found == "") {
+                        for (i = 1; i <= NF; i++) {
+                            if ($i ~ /^[0-9]+(\.[0-9]+)?([KMGT]?i?B)$/i) {
+                                # Extract number and unit parts with validation
+                                if (match($i, /^([0-9]+(\.[0-9]+)?)([KMGT]?i?B)$/i)) {
+                                    num_part = substr($i, 1, RSTART + RLENGTH - 1)
+                                    gsub(/[KMGT]?i?B$/i, "", num_part)
+                                    unit_part = $i
+                                    gsub(/^[0-9.]+/, "", unit_part)
+                                    # Validate extracted parts before using
+                                    if (num_part ~ /^[0-9]+(\.[0-9]+)?$/ && unit_part ~ /^[KMGT]?i?B$/i) {
+                                        size_found = num_part " " unit_part
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    # Strategy 3: Fallback to traditional fields 3-4 with enhanced validation
+                    if (size_found == "" && NF >= 4) {
+                        # Validate that fields 3-4 look like a proper size before using them
+                        if ($3 ~ /^[0-9]+(\.[0-9]+)?$/ && $4 ~ /^([KMGT]?i?B)$/i) {
+                            size_found = $3 " " $4
+                        }
+                    }
+                    
+                    # Strategy 4: Last resort - regex extraction from entire line with validation
+                    if (size_found == "") {
+                        # Match spaced format: "4.2 GB" or "4.2 GiB"
+                        if (match($0, /[0-9]+(\.[0-9]+)?\s+([KMGT]?i?B)/i)) {
+                            size_found = substr($0, RSTART, RLENGTH)
+                        }
+                        # Match compact format: "4.2GB" or "4.2GiB"
+                        else if (match($0, /[0-9]+(\.[0-9]+)?([KMGT]?i?B)/i)) {
+                            matched_text = substr($0, RSTART, RLENGTH)
+                            # Split into number and unit with validation
+                            temp_num = matched_text
+                            gsub(/[KMGT]?i?B$/i, "", temp_num)
+                            temp_unit = substr($0, RSTART, RLENGTH)
+                            gsub(/^[0-9.]+/, "", temp_unit)
+                            # Only use if both parts are valid
+                            if (temp_num ~ /^[0-9]+(\.[0-9]+)?$/ && temp_unit ~ /^[KMGT]?i?B$/i) {
+                                size_found = temp_num " " temp_unit
+                            }
+                        }
+                    }
+                    
+                    # Final guard: ensure size_found is non-empty and contains valid unit (SI or IEC)
+                    if (size_found ~ /^[0-9]+(\.[0-9]+)?[[:space:]]+([KMGT]?i?B)$/i) {
+                        print size_found
+                    } else {
+                        print ""
+                    }
                     exit
                 }
             ')
@@ -289,8 +356,10 @@ main() {
     verify_model_inclusion "$ENV_FILE"
     
     # Compute counts from both sources
-    local count_from_vars=$(compute_model_count_from_vars "$ENV_FILE")
-    local count_from_available=$(compute_model_count_from_available "$ENV_FILE")
+    local count_from_vars
+    count_from_vars=$(compute_model_count_from_vars "$ENV_FILE")
+    local count_from_available
+    count_from_available=$(compute_model_count_from_available "$ENV_FILE")
     
     echo "🔢 MODEL COUNT VALIDATION:"
     echo "  Count from OLLAMA_MODEL_* variables: $count_from_vars"

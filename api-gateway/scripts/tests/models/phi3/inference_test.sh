@@ -16,11 +16,15 @@ fi
 # Configuration - Environment variables with fallbacks (SOLID: Dependency Inversion)
 API_BASE="${API_BASE:-http://localhost:4000}"
 
-# Validate required authentication
-if [[ -z "${MASTER_KEY:-}" ]]; then
-    echo "ERROR: MASTER_KEY environment variable is required" >&2
+# Require explicit authentication token
+if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${HX_MASTER_KEY:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "❌ Either AUTH_TOKEN, HX_MASTER_KEY, or MASTER_KEY environment variable must be set"
+    echo "   Please provide authentication credentials"
     exit 1
 fi
+
+# Prefer AUTH_TOKEN, then HX_MASTER_KEY, then MASTER_KEY
+AUTH_KEY="${AUTH_TOKEN:-${HX_MASTER_KEY:-${MASTER_KEY}}}"
 
 MODEL_NAME="llm02-phi3"
 
@@ -43,6 +47,16 @@ echo "Running inference tests..."
 total_tests=${#test_prompts[@]}
 passed=0
 
+# Array to track temp files for cleanup
+temp_files=()
+# Set up cleanup trap once
+cleanup_temp_files() {
+    for file in "${temp_files[@]}"; do
+        rm -f "$file"
+    done
+}
+trap cleanup_temp_files EXIT
+
 for i in "${!test_prompts[@]}"; do
     prompt="${test_prompts[$i]}"
     echo
@@ -51,6 +65,8 @@ for i in "${!test_prompts[@]}"; do
     
     # Build payload and send request; detect HTTP errors
     tmp_payload=$(mktemp)
+    # Add to cleanup list
+    temp_files+=("$tmp_payload")
     jq -n \
         --arg model "$MODEL_NAME" \
         --arg prompt "$prompt" \
@@ -63,11 +79,18 @@ for i in "${!test_prompts[@]}"; do
             max_tokens: $max_tokens
         }' > "$tmp_payload"
 
+    # Detect curl support for --fail-with-body (available in curl 7.76.0+)
+    fail_flag="-f"
+    if curl --help all 2>/dev/null | grep -q -- "--fail-with-body"; then
+        fail_flag="--fail-with-body"
+    fi
+
     # Execute curl with proper exit code capture
-    raw_response=$(curl -s -fS --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
-        -H "Authorization: Bearer ${MASTER_KEY}" \
+    raw_response=$(curl -s "${fail_flag}" -S --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
+        -H "Authorization: Bearer ${AUTH_KEY}" \
         -H "Content-Type: application/json" \
-        -d @"$tmp_payload" 2>&1)
+        -H "Accept: application/json" \
+        --data-binary @"$tmp_payload" 2>&1)
     curl_exit_code=$?
     
     # Clean up temp file
