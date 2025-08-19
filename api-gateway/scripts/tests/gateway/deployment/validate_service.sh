@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# SOLID: Single Responsibility - ONLY validates service execution
+echo "=== [Service Validator] Testing Systemd Service ==="
+
+SVC="hx-gateway-smoke.service"
+
+# Preflight check
+if ! sudo systemctl cat "$SVC" >/dev/null 2>&1; then
+    echo "❌ Service not found: $SVC"
+    exit 1
+fi
+
+echo "→ Starting service for validation..."
+if sudo systemctl start "$SVC"; then
+    echo "   Service start command succeeded"
+else
+    echo "❌ Service start command failed"
+    exit 1
+fi
+
+echo "→ Waiting for service completion (max 60 seconds)..."
+timeout_reached=false
+for i in {1..60}; do
+    if ! sudo systemctl is-active --quiet "$SVC"; then
+        echo "Service became inactive after $i seconds"
+        break
+    fi
+    sleep 1
+    if [[ $i -eq 60 ]]; then
+        timeout_reached=true
+    fi
+done
+
+if [[ "$timeout_reached" == "true" ]]; then
+    echo "❌ Timed out waiting for $SVC to complete"
+    echo "Service is still active after 60 seconds"
+    sudo systemctl status "$SVC" --no-pager
+    exit 1
+fi
+
+echo "→ Checking service exit status..."
+if sudo systemctl show "$SVC" --property=ExecMainStatus --value | grep -q "^0$"; then
+    echo "✅ Service completed successfully (exit code 0)"
+else
+    echo "❌ Service failed with non-zero exit code"
+    echo "Recent logs:"
+    sudo journalctl -u "$SVC" -n 10 --no-pager
+    exit 1
+fi
+
+echo "→ Showing test results summary..."
+sudo journalctl -u "$SVC" --no-pager -n 50 | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -10
+
+echo "✅ Service validation completed successfully"

@@ -1,0 +1,45 @@
+# /opt/HX-Infrastructure-/api-gateway/gateway/model_registry.yaml
+# Model Registry - Metadata for ML Routing Algorithm
+# Single Responsibility: Model characteristics and capabilities for intelligent routing
+
+# Schema version for future compatibility and validation
+schema_version: "1.0"
+
+# Field defaults and schema:
+# - enabled: true (default) - allows safe feature toggles without code changes
+# - routing_weight: 1.0 (default) - relative weight for load balancing (higher = more traffic)
+# - cost: 0.0 (default) - relative cost factor for cost-aware routing
+# - deprecation_date: null (optional) - ISO date when model will be deprecated
+# - notes: null (optional) - operational notes or special considerations
+
+models:
+  - name: llm01-llama3.2-3b
+    provider: ollama
+    group: hx-chat
+    context_length: 8192
+    tier_score: 0.8
+    specializations: ["general", "summarization"]
+    enabled: true
+    routing_weight: 1.0
+    cost: 0.5
+    notes: "Primary general-purpose model"
+  - name: llm02-phi3
+    provider: ollama
+    group: hx-chat
+    context_length: 8192
+    tier_score: 0.75
+    specializations: ["reasoning", "code"]
+    enabled: true
+    routing_weight: 0.8
+    cost: 0.3
+    notes: "Optimized for coding tasks"
+  - name: llm02-gemma2-2b
+    provider: ollama
+    group: hx-chat
+    context_length: 8192
+    tier_score: 0.7
+    specializations: ["concise", "general"]
+    enabled: true
+    routing_weight: 1.2
+    cost: 0.2
+    notes: "Fast, lightweight option"

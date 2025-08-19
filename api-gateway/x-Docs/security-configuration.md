@@ -89,10 +89,11 @@ This guide documents the security hardening implemented for the HX-Infrastructur
    OVERRIDE
    ```
 
-4. Reload systemd and restart service:
+4. Reload systemd configuration, enable service persistence, and safely restart:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl restart hx-litellm-gateway.service
+   sudo systemctl enable --now hx-litellm-gateway.service
+   sudo systemctl try-reload-or-restart hx-litellm-gateway.service
    ```
 
 ### Testing with Secure Configuration

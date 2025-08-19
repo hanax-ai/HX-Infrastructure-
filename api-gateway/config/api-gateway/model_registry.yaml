@@ -1,0 +1,23 @@
+# /opt/HX-Infrastructure-/api-gateway/config/api-gateway/model_registry.yaml
+# Model Registry - Metadata for ML Routing Algorithm
+# Single Responsibility: Model characteristics and capabilities for intelligent routing
+
+models:
+  - name: llm01-llama3.2-3b
+    provider: ollama
+    group: hx-chat
+    context_length: 8192
+    tier_score: 0.8
+    specializations: ["general", "summarization"]
+  - name: llm02-phi3
+    provider: ollama
+    group: hx-chat
+    context_length: 8192
+    tier_score: 0.75
+    specializations: ["reasoning", "code"]
+  - name: llm02-gemma2-2b
+    provider: ollama
+    group: hx-chat
+    context_length: 8192
+    tier_score: 0.7
+    specializations: ["concise", "general"]
