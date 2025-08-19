@@ -115,9 +115,14 @@ if [ -z "$MASTER_KEY" ] || [ ${#MASTER_KEY} -lt 20 ]; then
 fi
 
 # Create secure environment file for the master key
-ENV_FILE="/etc/hx-gateway-ml.env"
+ENV_FILE="/etc/hx-gateway/ml.env"
 echo "$LOG_PREFIX Creating secure environment file at $ENV_FILE"
-mkdir -p "$(dirname "$ENV_FILE")"
+
+# Create namespaced directory with proper ownership and permissions
+mkdir -p "/etc/hx-gateway"
+chown root:root "/etc/hx-gateway"
+chmod 755 "/etc/hx-gateway"
+
 echo "HX_MASTER_KEY=$MASTER_KEY" > "$ENV_FILE"
 chmod 600 "$ENV_FILE"
 chown hx-gateway:hx-gateway "$ENV_FILE"
@@ -166,10 +171,13 @@ Group=hx-gateway
 
 # Environment Configuration
 # Load secure environment variables from protected file
-EnvironmentFile=/etc/hx-gateway-ml.env
+EnvironmentFile=/etc/hx-gateway/ml.env
 
 # Upstream LiteLLM endpoint - configurable for different environments
 Environment=HX_LITELLM_UPSTREAM=http://127.0.0.1:4000
+
+# Backward compatibility: Export MASTER_KEY as alias for HX_MASTER_KEY
+Environment=MASTER_KEY=${HX_MASTER_KEY}
 
 # Python path for proper module resolution
 Environment=PYTHONPATH=/opt/HX-Infrastructure-/api-gateway/gateway/src

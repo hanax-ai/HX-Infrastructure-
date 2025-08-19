@@ -105,7 +105,6 @@ if [[ -z "${MASTER_KEY:-}" ]]; then
     exit 1
 fi
 
-LOG_DIR="${LOGDIR}" \
-  "${BASE}/scripts/tests/gateway/orchestration/smoke_suite.sh"
+LOG_DIR="${LOGDIR}" MASTER_KEY="${MASTER_KEY}" "${BASE}/scripts/tests/gateway/orchestration/smoke_suite.sh"
 
 echo "✅ Restore completed and validated."

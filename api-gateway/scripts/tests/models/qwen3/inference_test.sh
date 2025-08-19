@@ -58,6 +58,7 @@ for i in "${!test_prompts[@]}"; do
     curl_output=$(curl -s --max-time 35 "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${MASTER_KEY}" \
         -H "Content-Type: application/json" \
+        -H "Accept: application/json" \
         --data-binary "$payload" \
         -w "\n%{http_code}")
     

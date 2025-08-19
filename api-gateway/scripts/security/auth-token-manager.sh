@@ -36,17 +36,17 @@ validate_token_format() {
     local token="$1"
     
     if [[ -z "$token" ]]; then
-        echo "ERROR: Token cannot be empty"
+        echo "ERROR: Token cannot be empty" >&2
         return 1
     fi
     
     if [[ ${#token} -lt 16 ]]; then
-        echo "ERROR: Token must be at least 16 characters"
+        echo "ERROR: Token must be at least 16 characters" >&2
         return 1
     fi
     
     if [[ "$token" == *"sk-hx-dev"* ]]; then
-        echo "WARNING: Development token detected"
+        echo "WARNING: Development token detected" >&2
     fi
     
     return 0
@@ -67,10 +67,33 @@ store_test_token() {
     chown hx-gateway:hx-gateway "$SECURITY_CONFIG_DIR" 2>/dev/null || true
     chmod 700 "$SECURITY_CONFIG_DIR"
     
-    # Store token securely
-    echo "$token" > "$TOKEN_FILE"
-    chmod 600 "$TOKEN_FILE"
-    chown hx-gateway:hx-gateway "$TOKEN_FILE" 2>/dev/null || true
+    # Store token securely with atomic write
+    local previous_umask
+    previous_umask=$(umask)
+    umask 077  # Restrictive permissions during creation
+    
+    local temp_file
+    temp_file=$(mktemp "${TOKEN_FILE}.XXXXXX")
+    
+    # Set up cleanup trap
+    trap 'rm -f "$temp_file"; umask "$previous_umask"' EXIT ERR
+    
+    # Write token without trailing newline
+    printf '%s' "$token" > "$temp_file"
+    
+    # Ensure data is written to disk
+    sync || true
+    
+    # Set final permissions and ownership
+    chmod 600 "$temp_file"
+    chown hx-gateway:hx-gateway "$temp_file" 2>/dev/null || true
+    
+    # Atomic move to final location
+    mv "$temp_file" "$TOKEN_FILE"
+    
+    # Clean up trap and restore umask
+    trap - EXIT ERR
+    umask "$previous_umask"
     
     echo "[${SCRIPT_NAME}] Test token stored securely"
     return 0
@@ -84,13 +107,15 @@ get_test_token() {
         token_content=$(cat "$TOKEN_FILE" 2>/dev/null || echo "")
         
         # If it looks like a shell assignment, extract the value
-        if [[ "$token_content" =~ ^[[:space:]]*AUTH_TOKEN=(.*)$ ]]; then
+        if [[ "$token_content" =~ ^[[:space:]]*AUTH_TOKEN[[:space:]]*=[[:space:]]*([^#]*)(#.*)?$ ]]; then
             local token_value="${BASH_REMATCH[1]}"
-            # Remove surrounding quotes if present
-            token_value="${token_value#\"}"
-            token_value="${token_value%\"}"
-            token_value="${token_value#\'}"
-            token_value="${token_value%\'}"
+            # Trim leading and trailing whitespace
+            token_value="${token_value#"${token_value%%[![:space:]]*}"}"
+            token_value="${token_value%"${token_value##*[![:space:]]}"}"
+            # Remove surrounding quotes if present (single or double)
+            if [[ "$token_value" =~ ^\"(.*)\"$ ]] || [[ "$token_value" =~ ^\'(.*)\'$ ]]; then
+                token_value="${BASH_REMATCH[1]}"
+            fi
             echo "$token_value"
         else
             # Assume it's a raw token
@@ -133,12 +158,40 @@ check_token_status() {
 generate_secure_token() {
     local prefix="${1:-sk-hx-test}"
     local random_part
-    if ! command -v openssl >/dev/null 2>&1; then
-        echo "ERROR: openssl not found; cannot generate secure token" >&2
+    
+    # Attempt OpenSSL first (preferred method)
+    if command -v openssl >/dev/null 2>&1; then
+        random_part=$(openssl rand -hex 16)
+        echo "${prefix}-${random_part}"
+        return 0
+    fi
+    
+    # Fallback: use /dev/urandom with hex conversion
+    if [[ ! -r /dev/urandom ]]; then
+        echo "ERROR: /dev/urandom not available; cannot generate secure token" >&2
         return 1
     fi
-    random_part=$(openssl rand -hex 16)
+    
+    # Try different hex conversion tools in order of preference
+    if command -v xxd >/dev/null 2>&1; then
+        random_part=$(dd if=/dev/urandom bs=16 count=1 2>/dev/null | xxd -p | tr -d '\n')
+    elif command -v od >/dev/null 2>&1; then
+        random_part=$(dd if=/dev/urandom bs=16 count=1 2>/dev/null | od -A n -t x1 | tr -d ' \n')
+    elif command -v hexdump >/dev/null 2>&1; then
+        random_part=$(dd if=/dev/urandom bs=16 count=1 2>/dev/null | hexdump -v -e '/1 "%02x"')
+    else
+        echo "ERROR: No hex conversion tool available (xxd, od, or hexdump required)" >&2
+        return 1
+    fi
+    
+    # Verify we got a proper hex string
+    if [[ -z "$random_part" ]] || [[ ! "$random_part" =~ ^[0-9a-f]{32}$ ]]; then
+        echo "ERROR: Failed to generate proper random hex string" >&2
+        return 1
+    fi
+    
     echo "${prefix}-${random_part}"
+    return 0
 }
 
 # Main function - orchestrates single responsibility functions

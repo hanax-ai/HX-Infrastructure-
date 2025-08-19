@@ -117,6 +117,17 @@ async def hx_pipeline(request: Request, call_next):
             key_lower = k.lower()
             if key_lower not in hop_by_hop and key_lower not in sensitive_headers:
                 fwd_headers[k] = v
+
+        # Configure upstream authentication explicitly
+        upstream_key = os.getenv("HX_UPSTREAM_KEY")
+        forward_auth = os.getenv("HX_FORWARD_AUTH", "").lower() in ("true", "1", "yes")
+        if upstream_key:
+            fwd_headers["Authorization"] = f"Bearer {upstream_key}"
+        elif forward_auth:
+            # Pass through client Authorization only when explicitly allowed
+            auth_hdr = request.headers.get("authorization")
+            if auth_hdr:
+                fwd_headers["Authorization"] = auth_hdr
         
         # Controlled client IP propagation (if needed for upstream logging)
         # Only add X-Forwarded-For if explicitly configured and from trusted source

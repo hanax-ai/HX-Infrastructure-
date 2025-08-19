@@ -12,7 +12,8 @@ RUNNER_NAME="gateway_nightly_runner"
 
 # Logging with dynamic timestamp
 log_runner() {
-    local current_time="$(date -u +%Y%m%dT%H%M%SZ)"
+    local current_time
+    current_time="$(date -u +%Y%m%dT%H%M%SZ)"
     echo "[${current_time}] ${RUNNER_NAME}: $1"
 }
 

@@ -32,6 +32,7 @@ if [[ -z "$MODEL_CONFIG_LIB" ]]; then
 fi
 
 # Source the library
+# shellcheck disable=SC1090
 source "$MODEL_CONFIG_LIB"
 
 # Verify required function is available
@@ -231,8 +232,8 @@ compute_total_size() {
                 # SHA reference: mistral-small3.2@sha256:... -> look for mistral-small3.2*
                 local base_name=$(echo "$model_ref" | cut -d'@' -f1)
                 search_pattern="$base_name"
-                # Try to find any version of this model in ollama list
-                local found_line=$(echo "$_ollama_list" | grep -E "^$base_name" | head -1 || echo "")
+                # Try to find any version of this model in ollama list using exact field matching
+                local found_line=$(echo "$_ollama_list" | awk -v base_name="$base_name" '$1 ~ "^" base_name {print; exit}' || echo "")
                 if [[ -n "$found_line" ]]; then
                     model_name=$(echo "$found_line" | awk '{print $1}')  # Use exact name from ollama
                 else
@@ -247,7 +248,7 @@ compute_total_size() {
             # Try to get size from ollama list using robust awk matching
             local size_info
             size_info=$(echo "$_ollama_list" | awk -v pattern="$search_pattern" '
-                NR > 1 && ($1 == pattern || index($1, pattern) == 1) {
+                NR > 1 && ($1 == pattern || $1 ~ ("^" pattern "$") || $1 ~ ("^" pattern ":")) {
                     print $3 " " $4
                     exit
                 }

@@ -145,7 +145,7 @@ class RoutingMiddleware(MiddlewareBase):
         group = req.headers.get("x-hx-model-group") or default_group
         
         all_models: List[Dict[str, Any]] = self._registry.get("models", []) if isinstance(self._registry, dict) else []
-        candidates = [m for m in all_models if m.get("group") == group]
+        candidates = [m for m in all_models if isinstance(m, dict) and m.get("group") == group]
 
         selected = self._algo.select(candidates, req_ctx) if candidates else None
 

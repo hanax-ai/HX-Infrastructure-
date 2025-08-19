@@ -20,15 +20,15 @@ class ModelSelectionAlgorithm:
             # Log model rejection for debugging
             model_id = model.get("name") or model.get("id") or "unknown"
             logger.warning(f"Model rejected: {model_id} - estimated tokens ({est_tokens}) exceed context length ({ctx_len})")
-            return 0.0
+            return float("-inf")
         tier = float(model.get("tier_score", 0.7))
         base = min(1.0, tier / complexity)
         
         # Dynamics - safe name extraction with defensive checks
-        model_name = model.get("name") or model.get("id", "unknown")
+        model_name = str(model.get("name") or model.get("id", "unknown"))
         if not model_name or model_name == "unknown":
-            # Log warning and use fallback
-            logger.warning(f"Model missing name/id: {model}")
+            # Log debug and use fallback
+            logger.debug(f"Model missing name/id: {model}")
             model_name = "fallback"
         
         load = current_load_penalty(model_name)

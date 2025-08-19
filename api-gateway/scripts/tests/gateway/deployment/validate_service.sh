@@ -53,18 +53,21 @@ fi
 echo "→ Showing test results summary..."
 
 # Capture journalctl output and check for errors
-test_results=$(sudo journalctl -u "$SVC" --no-pager -n 50 2>&1)
-journalctl_exit_code=$?
-
-# Check if journalctl command failed
-if [[ $journalctl_exit_code -ne 0 ]]; then
+# Capture journalctl output and check for errors (avoid masking exit code with assignment)
+tmp_journal="$(mktemp)"
+if ! sudo journalctl -u "$SVC" --no-pager -n 200 -o cat >"$tmp_journal" 2>&1; then
+    journalctl_exit_code=$?
     echo "❌ ERROR: Failed to retrieve service logs via journalctl (exit code: $journalctl_exit_code)"
-    echo "Raw journalctl output: $test_results"
+    echo "Raw journalctl output:"
+    cat "$tmp_journal"
+    rm -f "$tmp_journal"
     exit 1
 fi
+test_results="$(cat "$tmp_journal")"
+rm -f "$tmp_journal"
 
 # Filter for test results and handle empty results gracefully
-filtered_results=$(echo "$test_results" | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -10)
+filtered_results=$(echo "$test_results" | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -20)
 if [[ -n "$filtered_results" ]]; then
     echo "$filtered_results"
 else

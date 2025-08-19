@@ -55,13 +55,29 @@ for i in "${!test_prompts[@]}"; do
             "max_tokens": $max_tokens
         }')
     
-    if ! response=$(curl -sf --max-time 60 "${API_BASE}/v1/chat/completions" \
+    # Capture both response body and HTTP status code
+    curl_output=$(curl -sf --max-time 60 "${API_BASE}/v1/chat/completions" \
           -H "Authorization: Bearer ${AUTH_KEY}" \
           -H "Content-Type: application/json" \
           -H "Accept: application/json" \
           --data-binary "$payload" \
-        | jq -r '.choices[0].message.content // "ERROR"'); then
-        echo "❌ FAIL: HTTP or parse error"
+          -w "\n%{http_code}" 2>&1)
+    curl_exit_code=$?
+    
+    if [[ $curl_exit_code -ne 0 ]]; then
+        # Extract HTTP status from curl output if available
+        http_status=$(echo "$curl_output" | tail -n1 2>/dev/null || echo "unknown")
+        echo "❌ FAIL: HTTP or parse error (HTTP: $http_status)"
+        continue
+    fi
+    
+    # Split response body and HTTP status
+    response_body=$(echo "$curl_output" | head -n -1)
+    http_status=$(echo "$curl_output" | tail -n1)
+    
+    # Parse JSON response
+    if ! response=$(echo "$response_body" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null); then
+        echo "❌ FAIL: JSON parse error (HTTP: $http_status)"
         continue
     fi
     if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 20 ]]; then

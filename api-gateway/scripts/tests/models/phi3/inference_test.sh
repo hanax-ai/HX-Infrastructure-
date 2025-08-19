@@ -50,7 +50,8 @@ for i in "${!test_prompts[@]}"; do
     echo "Prompt: $(echo "$prompt" | head -c 60)..."
     
     # Build payload and send request; detect HTTP errors
-    raw_response=$(jq -n \
+    tmp_payload=$(mktemp)
+    jq -n \
         --arg model "$MODEL_NAME" \
         --arg prompt "$prompt" \
         --argjson temperature 0.4 \
@@ -60,15 +61,21 @@ for i in "${!test_prompts[@]}"; do
             messages: [{role: "user", content: $prompt}],
             temperature: $temperature,
             max_tokens: $max_tokens
-        }' | curl -s -fS --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
-            -H "Authorization: Bearer ${MASTER_KEY}" \
-            -H "Content-Type: application/json" \
-            -d @-)
+        }' > "$tmp_payload"
 
-    # Check if curl failed using exit status
+    # Execute curl with proper exit code capture
+    raw_response=$(curl -s -fS --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
+        -H "Authorization: Bearer ${MASTER_KEY}" \
+        -H "Content-Type: application/json" \
+        -d @"$tmp_payload" 2>&1)
     curl_exit_code=$?
+    
+    # Clean up temp file
+    rm -f "$tmp_payload"
+
+    # Check if curl failed
     if [[ $curl_exit_code -ne 0 ]]; then
-        echo "❌ FAIL: HTTP request failed"
+        echo "❌ FAIL: HTTP request failed (exit code: $curl_exit_code)"
         continue
     fi
 

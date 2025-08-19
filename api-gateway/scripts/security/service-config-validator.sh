@@ -17,7 +17,7 @@ validate_environment_prerequisites() {
     echo "[${SCRIPT_NAME}] Validating environment prerequisites"
     
     local required_vars=(
-        "MASTER_KEY"
+        "HX_MASTER_KEY"
     )
     
     local missing_vars=()
@@ -60,7 +60,12 @@ validate_config_syntax() {
     local python_result
     python_result=$(python3 -c "
 import sys
-import yaml
+
+try:
+    import yaml
+except ImportError:
+    print('PyYAML not installed: pip install pyyaml')
+    sys.exit(1)
 
 try:
     with open(sys.argv[1], 'r') as f:
@@ -188,10 +193,12 @@ generate_validation_report() {
     
     # Environment status
     echo "Environment Variables:"
-    if [[ -n "${MASTER_KEY:-}" ]]; then
-        echo "  ✅ MASTER_KEY: Configured (${#MASTER_KEY} chars)"
+    if [[ -n "${HX_MASTER_KEY:-}" ]]; then
+        echo "  ✅ HX_MASTER_KEY: Configured (${#HX_MASTER_KEY} chars)"
+    elif [[ -n "${MASTER_KEY:-}" ]]; then
+        echo "  ⚠️  MASTER_KEY: Configured (${#MASTER_KEY} chars) - Consider migrating to HX_MASTER_KEY"
     else
-        echo "  ❌ MASTER_KEY: Not configured"
+        echo "  ❌ HX_MASTER_KEY: Not configured"
     fi
     echo
     

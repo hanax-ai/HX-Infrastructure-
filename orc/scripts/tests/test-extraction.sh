@@ -2,7 +2,7 @@
 
 # Source shared model configuration library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/model-config.sh"
+source "$SCRIPT_DIR/../lib/model-config.sh"
 
 # Validate env file argument
 if [[ -z "$1" ]]; then

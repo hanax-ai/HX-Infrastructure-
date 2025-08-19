@@ -1,10 +1,6 @@
 general_settings:
-  master_key: ${MASTER_KEY:?MASTER_KEY environment variable must be set}
-  background_health_checks: true
-  health_check_interval: 300  # Check every 5 minutes
-  health_check_timeout: 30    # 30 second timeout for health probes
-  health_check_max_retries: 3 # Retry failed checks 3 times before marking as unhealthy
-  health_check_backoff: 10    # Wait 10 seconds between retries
+  master_key: ${HX_MASTER_KEY:?HX_MASTER_KEY environment variable must be set}
+  background_health_checks: false
 
 model_list:
   # --- Embeddings (orc) ---
@@ -15,10 +11,14 @@ model_list:
   - model_name: emb-light
     litellm_params: { model: "ollama/all-minilm",       api_base: "http://192.168.10.31:11434" }
 
-  # --- LLM-01 Models (192.168.10.29) ---
+  # --- Chat/Instruct (llm-01 + llm-02) ---
   - model_name: llm01-llama3.2-3b
     litellm_params: { model: "ollama/llama3.2:3b", api_base: "http://192.168.10.29:11434" }
-  - model_name: llm01-qwen3-1.7b
-    litellm_params: { model: "ollama/qwen3:1.7b", api_base: "http://192.168.10.29:11434" }
-  - model_name: llm01-mistral-small3.2
-    litellm_params: { model: "ollama/mistral-small3.2:latest", api_base: "http://192.168.10.29:11434" }
+  - model_name: llm02-phi3
+    litellm_params: { model: "ollama/phi3:latest", api_base: "http://192.168.10.28:11434" }
+  - model_name: llm02-gemma2-2b
+    litellm_params: { model: "ollama/gemma2:2b",   api_base: "http://192.168.10.28:11434" }
+
+  # --- Model Group for Load Balancing ---
+  - model_name: hx-chat
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: "http://192.168.10.29:11434" }

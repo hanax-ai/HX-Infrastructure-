@@ -5,7 +5,7 @@ set -uo pipefail
 
 # Source the library under test
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/model-config.sh"
+source "$SCRIPT_DIR/../lib/model-config.sh"
 
 # Test counters
 TESTS_RUN=0

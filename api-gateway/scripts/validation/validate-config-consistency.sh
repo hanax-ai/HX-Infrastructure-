@@ -91,7 +91,7 @@ check_yaml_anchors() {
     #   - hx-chat variants: hx-chat, hx-chat-fast, hx-chat-code, hx-chat-premium, hx-chat-creative
     # Pattern relaxed to accommodate both anchor references and inline definitions
     # Treated as warning (not error) because load balancer groups are optional but recommended
-    if grep -qE '<<: \*(?:load_balancer_groups|hx-chat)|\b(?:hx-chat|hx-chat-fast|hx-chat-code|hx-chat-premium|hx-chat-creative)\b' "$file"; then
+    if grep -qP '<<: \*(?:load_balancer_groups|hx-chat)|\b(?:hx-chat|hx-chat-fast|hx-chat-code|hx-chat-premium|hx-chat-creative)\b' "$file"; then
         echo -e "${GREEN}✓ Load balancer definitions present in $filename${NC}"
         return 0
     fi
@@ -194,7 +194,7 @@ generate_summary_report() {
     
     echo
     echo -e "${BLUE}=== Environment Variables Required ===${NC}"
-    echo "- MASTER_KEY: API Gateway master key"
+    echo "- HX_MASTER_KEY: API Gateway master key (preferred) or MASTER_KEY (legacy)"
     echo "- ORC_API_BASE: Orchestrator API endpoint (default: http://192.168.10.31:11434)"
     echo "- LLM01_API_BASE: LLM-01 API endpoint (default: http://192.168.10.29:11434)"
     echo "- LLM02_API_BASE: LLM-02 API endpoint (default: http://192.168.10.28:11434)"

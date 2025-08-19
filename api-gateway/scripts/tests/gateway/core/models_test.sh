@@ -16,10 +16,18 @@ fi
 
 # Verify response is valid JSON
 if ! echo "$response" | jq empty 2>/dev/null; then
-    # Truncate response if very large (limit to 500 chars for readability)
-    response_preview="${response:0:500}"
-    if [[ ${#response} -gt 500 ]]; then
-        response_preview="${response_preview}... [truncated, ${#response} total chars]"
+    # Sanitize response for safe logging: normalize to single line and remove control chars
+    sanitized_response="${response}"
+    # Replace newlines and carriage returns with spaces
+    sanitized_response="${sanitized_response//$'\n'/ }"
+    sanitized_response="${sanitized_response//$'\r'/ }"
+    # Remove non-printable control characters (keep basic printable ASCII 32-126 and tab)
+    sanitized_response=$(echo "$sanitized_response" | tr -cd '[:print:]\t' | tr -s ' ')
+    
+    # Truncate sanitized response if very large (limit to 500 chars for readability)
+    response_preview="${sanitized_response:0:500}"
+    if [[ ${#sanitized_response} -gt 500 ]]; then
+        response_preview="${response_preview}... [truncated, ${#sanitized_response} total chars]"
     fi
     log_test "$TEST_NAME" "❌ FAIL: Invalid JSON response. Raw response: $response_preview"
     exit 1
