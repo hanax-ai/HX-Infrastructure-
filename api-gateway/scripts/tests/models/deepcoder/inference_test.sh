@@ -15,7 +15,15 @@ fi
 # SOLID: Single Responsibility - Test ONLY deepcoder inference capability
 # Configuration - Environment variables with fallbacks (SOLID: Dependency Inversion)
 API_BASE="${API_BASE:-http://localhost:4000}"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"
+
+# Validate required authentication
+if [[ -z "${AUTH_TOKEN:-}" ]] && [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "ERROR: Either AUTH_TOKEN or MASTER_KEY environment variable is required" >&2
+    exit 1
+fi
+
+# Prefer AUTH_TOKEN over MASTER_KEY
+AUTH_KEY="${AUTH_TOKEN:-${MASTER_KEY}}"
 
 MODEL_NAME="llm02-deepcoder-14b"
 
@@ -45,7 +53,6 @@ for i in "${!test_prompts[@]}"; do
     echo "Prompt: $(echo "$prompt" | head -c 60)..."
     
     # Construct JSON payload safely using jq
-    local payload
     payload=$(jq -n \
         --arg model "$MODEL_NAME" \
         --arg prompt "$prompt" \
@@ -64,7 +71,7 @@ for i in "${!test_prompts[@]}"; do
     # Capture HTTP status code and response body separately
     http_status=$(curl -s --max-time 60 -w "%{http_code}" -o "$temp_response" \
         "${API_BASE}/v1/chat/completions" \
-        -H "Authorization: Bearer ${MASTER_KEY}" \
+        -H "Authorization: Bearer ${AUTH_KEY}" \
         -H "Content-Type: application/json" \
         --data-binary "$payload")
     

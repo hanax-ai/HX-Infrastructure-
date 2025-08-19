@@ -12,7 +12,12 @@ done
 # SOLID: Single Responsibility - Test ONLY mistral availability
 # Configuration - Environment variables with fallbacks (SOLID: Dependency Inversion)
 API_BASE="${API_BASE:-http://localhost:4000}"
-MASTER_KEY="${MASTER_KEY:-sk-hx-dev-1234}"
+
+# Validate required authentication
+if [[ -z "${MASTER_KEY:-}" ]]; then
+    echo "ERROR: MASTER_KEY environment variable is required" >&2
+    exit 1
+fi
 
 MODEL_NAME="${MODEL_NAME:-llm01-mistral-small3.2}"
 
