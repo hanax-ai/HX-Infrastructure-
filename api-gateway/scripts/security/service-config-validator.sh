@@ -44,9 +44,15 @@ validate_config_syntax() {
     
     echo "[${SCRIPT_NAME}] Validating configuration syntax: $config_file"
     
-    # Check if file exists and is readable
-    if [[ ! -f "$config_file" || ! -r "$config_file" ]]; then
-        echo "ERROR: Configuration file does not exist or is not readable: $config_file"
+    # Check if file exists
+    if [[ ! -f "$config_file" ]]; then
+        echo "ERROR: Configuration file does not exist: $config_file"
+        return 1
+    fi
+    
+    # Check if file is readable
+    if [[ ! -r "$config_file" ]]; then
+        echo "ERROR: Configuration file is not readable: $config_file"
         return 1
     fi
     

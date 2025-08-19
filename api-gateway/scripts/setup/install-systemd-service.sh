@@ -44,8 +44,6 @@ set -euo pipefail
 #   - Systemd integration for logging and monitoring
 #   - Clean separation from existing LiteLLM service
 
-set -euo pipefail
-
 # Configuration
 SCRIPT_NAME="HX Gateway Wrapper Systemd Service Installation"
 SERVICE_NAME="hx-gateway-ml.service"
@@ -117,7 +115,7 @@ if [ -z "$MASTER_KEY" ] || [ ${#MASTER_KEY} -lt 20 ]; then
 fi
 
 # Create secure environment file for the master key
-ENV_FILE="/etc/hx-gateway/master.env"
+ENV_FILE="/etc/hx-gateway-ml.env"
 echo "$LOG_PREFIX Creating secure environment file at $ENV_FILE"
 mkdir -p "$(dirname "$ENV_FILE")"
 echo "HX_MASTER_KEY=$MASTER_KEY" > "$ENV_FILE"
@@ -168,7 +166,7 @@ Group=hx-gateway
 
 # Environment Configuration
 # Load secure environment variables from protected file
-EnvironmentFile=/etc/hx-gateway/master.env
+EnvironmentFile=/etc/hx-gateway-ml.env
 
 # Upstream LiteLLM endpoint - configurable for different environments
 Environment=HX_LITELLM_UPSTREAM=http://127.0.0.1:4000

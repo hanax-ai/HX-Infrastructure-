@@ -10,21 +10,25 @@ set -euo pipefail
 
 readonly SCRIPT_NAME="$(basename "$0")"
 
-# Determine SECURITY_CONFIG_DIR separately to avoid masking cd errors (SC2155)
+# Compute security config directory path once
 if [[ -n "${SECURITY_CONFIG_DIR:-}" ]]; then
-    readonly SECURITY_CONFIG_DIR="${SECURITY_CONFIG_DIR}"
+    # Use environment variable if set
+    security_config_dir="$SECURITY_CONFIG_DIR"
 else
-    # Try to determine the config directory, fall back to literal path if cd fails
-    config_dir=""
+    # Save current directory
+    original_pwd="$(pwd)"
+    
+    # Try to resolve relative path, fallback to hardcoded path
     if cd "$(dirname "${BASH_SOURCE[0]}")"/../../config/security 2>/dev/null; then
-        config_dir="$(pwd)"
-        cd - >/dev/null
-        readonly SECURITY_CONFIG_DIR="$config_dir"
+        security_config_dir="$(pwd)"
+        cd "$original_pwd"
     else
-        readonly SECURITY_CONFIG_DIR="/opt/HX-Infrastructure-/api-gateway/config/security"
+        security_config_dir="/opt/HX-Infrastructure-/api-gateway/config/security"
     fi
 fi
 
+# Set readonly variables once
+readonly SECURITY_CONFIG_DIR="$security_config_dir"
 readonly TOKEN_FILE="${TOKEN_FILE:-$SECURITY_CONFIG_DIR/.test-tokens}"
 
 # Single Responsibility: Token validation only
@@ -59,6 +63,10 @@ store_test_token() {
     # Ensure security config directory exists
     mkdir -p "$SECURITY_CONFIG_DIR"
     
+    # Secure directory permissions to prevent traversal/inspection
+    chown hx-gateway:hx-gateway "$SECURITY_CONFIG_DIR" 2>/dev/null || true
+    chmod 700 "$SECURITY_CONFIG_DIR"
+    
     # Store token securely
     echo "$token" > "$TOKEN_FILE"
     chmod 600 "$TOKEN_FILE"
@@ -76,7 +84,7 @@ get_test_token() {
         token_content=$(cat "$TOKEN_FILE" 2>/dev/null || echo "")
         
         # If it looks like a shell assignment, extract the value
-        if [[ "$token_content" =~ ^AUTH_TOKEN=(.*)$ ]]; then
+        if [[ "$token_content" =~ ^[[:space:]]*AUTH_TOKEN=(.*)$ ]]; then
             local token_value="${BASH_REMATCH[1]}"
             # Remove surrounding quotes if present
             token_value="${token_value#\"}"

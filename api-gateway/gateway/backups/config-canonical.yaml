@@ -65,22 +65,4 @@ model_list:
     litellm_params: { model: "ollama/phi3:latest", api_base: *llm02_api_base }
 
   # --- Load Balancer Groups (Reference to canonical definitions) ---
-  # Speed-optimized (small, fast models)
-  - model_name: hx-chat-fast
-    litellm_params: { model: "ollama/qwen3:1.7b", api_base: *llm01_api_base }
-  
-  # Balanced performance
-  - model_name: hx-chat
-    litellm_params: { model: "ollama/llama3.2:3b", api_base: *llm01_api_base }
-  
-  # Code-specialized
-  - model_name: hx-chat-code
-    litellm_params: { model: "ollama/deepcoder:14b", api_base: *llm02_api_base }
-  
-  # High-quality reasoning
-  - model_name: hx-chat-premium
-    litellm_params: { model: "ollama/cogito:32b", api_base: *llm02_api_base }
-  
-  # Creative/conversational
-  - model_name: hx-chat-creative
-    litellm_params: { model: "ollama/dolphin3:8b", api_base: *llm02_api_base }
+  <<: *load_balancer_groups

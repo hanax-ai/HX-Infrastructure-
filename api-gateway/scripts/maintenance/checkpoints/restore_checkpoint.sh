@@ -103,7 +103,9 @@ if [[ -z "${MASTER_KEY:-}" ]]; then
     echo "❌ ERROR: MASTER_KEY environment variable is required" >&2
     echo "   Please export MASTER_KEY=your-secure-key before running this script" >&2
     exit 1
-fi LOG_DIR="${LOGDIR}" \
+fi
+
+LOG_DIR="${LOGDIR}" \
   "${BASE}/scripts/tests/gateway/orchestration/smoke_suite.sh"
 
 echo "✅ Restore completed and validated."

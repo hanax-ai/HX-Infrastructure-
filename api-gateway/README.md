@@ -34,9 +34,10 @@ sudo systemctl status hx-gateway-ml
 # Expected: Active (running)
 
 # Test authentication (will show database error but proves proxy working)
-# First set your API key:
-export API_KEY="your-actual-api-key-here"
+# Safely enter your API key with hidden input:
+read -s -p "Enter API key: " API_KEY && echo
 curl -s http://127.0.0.1:4010/v1/models -H "Authorization: Bearer $API_KEY" | jq .
+unset API_KEY
 # Expected: {"error": {"message": "No connected db.", ...}} (this confirms proxy is working)
 # Note: Store your API key in an environment file or secret manager, not in shell history
 ```

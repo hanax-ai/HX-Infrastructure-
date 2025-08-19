@@ -55,18 +55,15 @@ for i in "${!test_prompts[@]}"; do
             "max_tokens": $max_tokens
         }')
     
-    response=$(curl -sf --max-time 60 "${API_BASE}/v1/chat/completions" \
-        -H "Authorization: Bearer ${AUTH_KEY}" \
-        -H "Content-Type: application/json" \
-        -H "Accept: application/json" \
-        --data-binary "$payload" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
-    
-    # Check if curl failed (exit code captured by bash)
-    if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-        echo "❌ FAIL: HTTP request failed"
+    if ! response=$(curl -sf --max-time 60 "${API_BASE}/v1/chat/completions" \
+          -H "Authorization: Bearer ${AUTH_KEY}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
+          --data-binary "$payload" \
+        | jq -r '.choices[0].message.content // "ERROR"'); then
+        echo "❌ FAIL: HTTP or parse error"
         continue
     fi
-    
     if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 20 ]]; then
         echo "✅ PASS: Generated $(echo "$response" | wc -w) words"
         echo "Preview: $(echo "$response" | head -c 120)..."

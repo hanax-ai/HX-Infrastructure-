@@ -86,13 +86,18 @@ check_yaml_anchors() {
     fi
     
     # Check for load balancer group references or direct definitions
+    # Expected anchors and patterns:
+    #   - load_balancer_groups anchor (<<: *load_balancer_groups)
+    #   - hx-chat variants: hx-chat, hx-chat-fast, hx-chat-code, hx-chat-premium, hx-chat-creative
+    # Pattern relaxed to accommodate both anchor references and inline definitions
+    # Treated as warning (not error) because load balancer groups are optional but recommended
     if grep -qE '<<: \*(?:load_balancer_groups|hx-chat)|\b(?:hx-chat|hx-chat-fast|hx-chat-code|hx-chat-premium|hx-chat-creative)\b' "$file"; then
         echo -e "${GREEN}✓ Load balancer definitions present in $filename${NC}"
         return 0
     fi
     
-    echo -e "${YELLOW}⚠ No load balancer group definitions found in $filename${NC}"
-    return 0  # Make this a warning, not an error
+    echo -e "${YELLOW}⚠ No load balancer group definitions found in $filename (load_balancer_groups anchor or hx-chat variants are optional but recommended)${NC}"
+    return 0  # Warning only - load balancer groups are optional for flexibility
 }
 
 validate_yaml_syntax() {

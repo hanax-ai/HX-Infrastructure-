@@ -9,11 +9,11 @@ ORCHESTRATION_DIR="$SCRIPT_DIR"
 source "${SCRIPT_DIR}/../config/test_config.sh"
 
 RUNNER_NAME="gateway_nightly_runner"
-TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
-# Logging with timestamp
+# Logging with dynamic timestamp
 log_runner() {
-    echo "[${TIMESTAMP}] ${RUNNER_NAME}: $1"
+    local current_time="$(date -u +%Y%m%dT%H%M%SZ)"
+    echo "[${current_time}] ${RUNNER_NAME}: $1"
 }
 
 log_runner "Starting nightly smoke test execution"

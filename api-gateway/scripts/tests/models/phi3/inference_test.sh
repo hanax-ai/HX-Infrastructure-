@@ -60,14 +60,14 @@ for i in "${!test_prompts[@]}"; do
             messages: [{role: "user", content: $prompt}],
             temperature: $temperature,
             max_tokens: $max_tokens
-        }' | \
-        curl -s -fS --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
-        -H "Authorization: Bearer ${MASTER_KEY}" \
-        -H "Content-Type: application/json" \
-        -d @-)
+        }' | curl -s -fS --max-time "${TIMEOUT:-60}" "${API_BASE}/v1/chat/completions" \
+            -H "Authorization: Bearer ${MASTER_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @-)
 
-    # Check if curl failed
-    if [[ ${PIPESTATUS[1]} -ne 0 ]]; then
+    # Check if curl failed using exit status
+    curl_exit_code=$?
+    if [[ $curl_exit_code -ne 0 ]]; then
         echo "❌ FAIL: HTTP request failed"
         continue
     fi

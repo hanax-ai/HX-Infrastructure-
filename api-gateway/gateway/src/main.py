@@ -123,7 +123,16 @@ async def hx_pipeline(request: Request, call_next):
         trust_proxy_ip = os.getenv("HX_TRUST_PROXY_IP", "").lower() in ("true", "1", "yes")
         if trust_proxy_ip:
             # Get client IP from connection info (not from headers to prevent spoofing)
-            client_ip = getattr(request.client, 'host', 'unknown') if request.client else 'unknown'
+            client_ip = 'unknown'
+            if request.client:
+                # Try object attribute first (newer Starlette/FastAPI versions)
+                client_ip = getattr(request.client, 'host', None)
+                # Fall back to tuple/list format (older versions)
+                if client_ip is None and isinstance(request.client, (tuple, list)) and len(request.client) > 0:
+                    client_ip = request.client[0]
+                # Ensure we have a valid string
+                if client_ip is None:
+                    client_ip = 'unknown'
             if client_ip != 'unknown':
                 fwd_headers["X-HX-Client-IP"] = client_ip  # Use custom header to avoid confusion
 

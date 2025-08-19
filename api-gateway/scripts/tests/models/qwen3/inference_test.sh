@@ -53,18 +53,32 @@ for i in "${!test_prompts[@]}"; do
         --argjson temperature 0.2 \
         --argjson max_tokens 120 \
         '{model:$model, messages:[{role:"user", content:$prompt}], temperature:$temperature, max_tokens:$max_tokens}')
-    response=$(curl -s --max-time 35 "${API_BASE}/v1/chat/completions" \
+    
+    # Capture both response body and HTTP status code
+    curl_output=$(curl -s --max-time 35 "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${MASTER_KEY}" \
         -H "Content-Type: application/json" \
         --data-binary "$payload" \
-      | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
+        -w "\n%{http_code}")
+    
+    # Split response body and HTTP status
+    body=$(echo "$curl_output" | head -n -1)
+    http_code=$(echo "$curl_output" | tail -n 1)
+    
+    # Parse response body with jq
+    response=$(echo "$body" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
     
     if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 5 ]]; then
         echo "✅ PASS: Generated $(echo "$response" | wc -w) words"
         echo "Preview: $(echo "$response" | head -c 80)..."
         ((passed++))
     else
-        echo "❌ FAIL: No valid response generated"
+        # Provide HTTP status for diagnostics when response failed
+        if [[ "$response" == "ERROR" ]] || [[ -z "$response" ]]; then
+            echo "❌ FAIL: No valid response generated (HTTP $http_code)"
+        else
+            echo "❌ FAIL: Response too short (HTTP $http_code)"
+        fi
     fi
 done
 

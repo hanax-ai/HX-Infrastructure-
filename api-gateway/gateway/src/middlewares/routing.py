@@ -16,6 +16,8 @@ class RoutingMiddleware(MiddlewareBase):
         self._routing = None
         self._algo = ModelSelectionAlgorithm()
         self.logger = logging.getLogger(__name__)
+        # Cache environment variables to avoid repeated lookups
+        self._max_body_size = int(os.environ.get("HX_MAX_ROUTING_BODY_SIZE", "65536"))
 
     def _load_configs(self):
         """Load configuration files with comprehensive error handling and validation"""
@@ -95,12 +97,13 @@ class RoutingMiddleware(MiddlewareBase):
         try:
             body_bytes = await req.body()
             # Validate body size to prevent memory exhaustion
-            max_body_size = int(os.environ.get("HX_MAX_ROUTING_BODY_SIZE", "65536"))  # 64KB default
+            max_body_size = self._max_body_size  # 64KB default
             if len(body_bytes) > max_body_size:
                 self.logger.error(f"Request body too large: {len(body_bytes)} bytes (max: {max_body_size})")
                 context["response"] = Response(
                     status_code=413, 
-                    content=b'{"error": "Payload too large for routing processing"}'
+                    content=b'{"error": "Payload too large for routing processing"}',
+                    media_type="application/json"
                 )
                 return context
                 
@@ -109,7 +112,8 @@ class RoutingMiddleware(MiddlewareBase):
                 self.logger.error(f"Invalid payload type: expected dict, got {type(payload)}")
                 context["response"] = Response(
                     status_code=400, 
-                    content=b'{"error": "Request body must be a JSON object"}'
+                    content=b'{"error": "Request body must be a JSON object"}',
+                    media_type="application/json"
                 )
                 return context
                 
@@ -117,14 +121,16 @@ class RoutingMiddleware(MiddlewareBase):
             self.logger.error(f"JSON decode error: {e}")
             context["response"] = Response(
                 status_code=400, 
-                content=b'{"error": "Invalid JSON in request body"}'
+                content=b'{"error": "Invalid JSON in request body"}',
+                media_type="application/json"
             )
             return context
         except Exception as e:
             self.logger.error(f"Unexpected error parsing request body: {e}")
             context["response"] = Response(
                 status_code=500, 
-                content=b'{"error": "Internal server error processing request"}'
+                content=b'{"error": "Internal server error processing request"}',
+                media_type="application/json"
             )
             return context
 
@@ -148,8 +154,12 @@ class RoutingMiddleware(MiddlewareBase):
             failover_order = routing_config.get("failover_order", [])
             payload["model"] = failover_order[0] if isinstance(failover_order, list) and failover_order else None
         else:
-            # Safe access to selected model name
-            payload["model"] = selected.get("name") if isinstance(selected, dict) else None
+            # Safe access to selected model name or id, avoid null values
+            if isinstance(selected, dict):
+                model_identifier = selected.get("name") or selected.get("id")
+                if model_identifier:
+                    payload["model"] = model_identifier
+                # If neither name nor id exists, don't set the model key to avoid JSON null
 
         context["normalized_body"] = json.dumps(payload).encode("utf-8")
         return context

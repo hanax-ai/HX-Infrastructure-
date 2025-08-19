@@ -97,11 +97,6 @@ TimeoutStopSec=30
 EnvironmentFile=/etc/hx-gateway-ml.env
 ```
 
-#### Environment File Setup
-
-Create the protected environment file:
-
-```bash
 # Create environment file with restricted permissions
 sudo tee /etc/hx-gateway-ml.env > /dev/null <<EOF
 # Authentication token for API access
@@ -114,15 +109,27 @@ HX_LITELLM_UPSTREAM=http://127.0.0.1:4000
 PYTHONPATH=/opt/HX-Infrastructure-/api-gateway/gateway/src
 EOF
 
+# Ensure hx-gateway group exists and user is a member
+if ! getent group hx-gateway >/dev/null; then
+  sudo groupadd --system hx-gateway
+fi
+if id -nG hx-gateway 2>/dev/null | grep -vqE '\bhx-gateway\b'; then
+  sudo usermod -a -G hx-gateway hx-gateway
+fi
+
 # Set secure ownership and permissions
 sudo chown root:hx-gateway /etc/hx-gateway-ml.env
 sudo chmod 640 /etc/hx-gateway-ml.env
-```
 
 **Security Notes**:
 - File is readable by root and the hx-gateway group only
 - Permissions 640 prevent other users from reading sensitive credentials
-- Environment variables are loaded securely at service startup
+- Environment variables are loaded securely at service startup — changes take effect after the service is restarted
+
+**Important**: After modifying the environment file, restart the systemd service to apply changes:
+```bash
+sudo systemctl restart hx-gateway-ml.service
+```
 
 ### Configuration File Access
 ```ini
@@ -229,6 +236,10 @@ sudo systemctl edit hx-gateway-ml.service
 # Edit /etc/hx-gateway-ml.env:
 MASTER_KEY=your-production-key
 HX_LITELLM_UPSTREAM=http://production-litellm:4000
+
+# IMPORTANT: After editing the EnvironmentFile, restart the service
+# to pick up the new environment variable values:
+sudo systemctl restart hx-gateway-ml.service
 ```
 
 ### Routing Configuration

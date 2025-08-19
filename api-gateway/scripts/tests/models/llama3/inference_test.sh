@@ -55,10 +55,23 @@ for i in "${!test_prompts[@]}"; do
             "max_tokens": $max_tokens
         }')
     response=$(curl -s --max-time 45 "${API_BASE}/v1/chat/completions" \
-    response=$(curl -fsS --max-time 45 "${API_BASE}/v1/chat/completions" \
+    if ! response=$(curl -fsS --max-time 45 "${API_BASE}/v1/chat/completions" \
         -H "Authorization: Bearer ${AUTH_KEY}" \
         -H "Accept: application/json" \
         -H "Content-Type: application/json" \
+        --data-binary "$payload" \
+      | jq -r '.choices[0].message.content // "ERROR"'); then
+        echo "❌ FAIL: HTTP or parse error"
+        continue
+    fi
+
+    if [[ "$response" != "ERROR" && -n "$response" && ${#response} -gt 20 ]]; then
+        echo "✅ PASS: Generated $(echo "$response" | wc -w) words"
+        echo "Preview: $(echo "$response" | head -c 100)..."
+        ((passed++))
+    else
+        echo "❌ FAIL: No valid response generated"
+    fi
         --data-binary "$payload" | jq -r '.choices[0].message.content // "ERROR"' 2>/dev/null)
         echo "✅ PASS: Generated $(echo "$response" | wc -w) words"
         echo "Preview: $(echo "$response" | head -c 100)..."

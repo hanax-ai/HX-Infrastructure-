@@ -51,6 +51,24 @@ else
 fi
 
 echo "→ Showing test results summary..."
-sudo journalctl -u "$SVC" --no-pager -n 50 | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -10 || true
+
+# Capture journalctl output and check for errors
+test_results=$(sudo journalctl -u "$SVC" --no-pager -n 50 2>&1)
+journalctl_exit_code=$?
+
+# Check if journalctl command failed
+if [[ $journalctl_exit_code -ne 0 ]]; then
+    echo "❌ ERROR: Failed to retrieve service logs via journalctl (exit code: $journalctl_exit_code)"
+    echo "Raw journalctl output: $test_results"
+    exit 1
+fi
+
+# Filter for test results and handle empty results gracefully
+filtered_results=$(echo "$test_results" | grep -E "(✅|❌|Test Suite Results|SUCCESS|FAIL)" | tail -10)
+if [[ -n "$filtered_results" ]]; then
+    echo "$filtered_results"
+else
+    echo "No matching test result lines found in recent logs"
+fi
 
 echo "✅ Service validation completed successfully"

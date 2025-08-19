@@ -29,18 +29,19 @@ check_embedding_model() {
         return 1
     fi
     
-    # Safely parse JSON and capture any failures
+    # Safely parse JSON with exit-on-null behavior and validate numeric output
     set +e
-    actual_dim=$(echo "$response" | jq -r '.data[0].embedding | length' 2>/dev/null)
+    actual_dim=$(echo "$response" | jq -er '.data[0].embedding | length' 2>/dev/null)
     local jq_rc=$?
     set -e
     
-    if [[ $jq_rc -ne 0 ]] || [[ -z "$actual_dim" ]] || [[ "$actual_dim" == "null" ]]; then
-        log_test "$TEST_NAME" "❌ $model: Invalid JSON response or missing embedding data"
+    # Validate jq succeeded and result is a numeric integer
+    if [[ $jq_rc -ne 0 ]] || [[ -z "$actual_dim" ]] || ! [[ "$actual_dim" =~ ^[0-9]+$ ]]; then
+        log_test "$TEST_NAME" "❌ $model: Invalid JSON response, missing embedding data, or non-numeric dimension"
         return 1
     fi
     
-    if [[ "$actual_dim" == "$expected_dim" ]]; then
+    if (( actual_dim == expected_dim )); then
         log_test "$TEST_NAME" "✅ $model: $actual_dim dimensions (correct)"
         return 0
     else

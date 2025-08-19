@@ -4,9 +4,42 @@
 
 set -euo pipefail
 
-# Source shared model configuration library
+# Source shared model configuration library with robust path resolution
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../lib/model-config.sh"
+
+# Search for model-config.sh in likely locations
+MODEL_CONFIG_PATHS=(
+    "$SCRIPT_DIR/../lib/model-config.sh"
+    "$SCRIPT_DIR/lib/model-config.sh"
+    "$SCRIPT_DIR/../scripts/lib/model-config.sh"
+)
+
+MODEL_CONFIG_LIB=""
+for path in "${MODEL_CONFIG_PATHS[@]}"; do
+    if [[ -r "$path" ]]; then
+        MODEL_CONFIG_LIB="$path"
+        break
+    fi
+done
+
+# Validate library file was found
+if [[ -z "$MODEL_CONFIG_LIB" ]]; then
+    echo "❌ ERROR: model-config.sh library not found in any expected location:" >&2
+    for path in "${MODEL_CONFIG_PATHS[@]}"; do
+        echo "   - $path" >&2
+    done
+    exit 1
+fi
+
+# Source the library
+source "$MODEL_CONFIG_LIB"
+
+# Verify required function is available
+if ! declare -F extract_model_references >/dev/null 2>&1; then
+    echo "❌ ERROR: Required function 'extract_model_references' not found in $MODEL_CONFIG_LIB" >&2
+    echo "   The library may be corrupted or incompatible with this script" >&2
+    exit 1
+fi
 
 ENV_FILE="${1:-/opt/hx-infrastructure/llm-01/config/ollama/ollama.env}"
 VALIDATION_MODE="${2:-strict}"  # strict|info

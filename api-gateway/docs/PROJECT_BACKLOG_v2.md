@@ -21,6 +21,11 @@ The HX Gateway Wrapper reverse proxy is fully operational, but all API endpoints
 
 ##### ✅ PASSING Tests
 
+**Setup**: Set your API key for all examples below:
+```bash
+export API_KEY="YOUR_TOKEN_HERE"
+```
+
 ```bash
 # 6.2 Health Check
 curl -s http://127.0.0.1:4010/healthz | jq .
@@ -55,7 +60,7 @@ curl -s http://127.0.0.1:4010/v1/chat/completions \
 # Direct LiteLLM Test (confirms root cause)
 curl -s http://127.0.0.1:4000/v1/embeddings \
   -H "Authorization: Bearer $API_KEY" -H "Content-Type: application/json" \
-  -d '{"model":"emb-premium","prompt":"HX-OK"}' | jq .
+  -d '{"model":"emb-premium","input":"HX-OK"}' | jq .
 # Result: {"error": {"message": "No connected db.", "type": "no_db_connection", "param": null, "code": "400"}} ❌
 ```
 

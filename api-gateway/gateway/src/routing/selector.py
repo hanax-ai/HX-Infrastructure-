@@ -17,6 +17,9 @@ class ModelSelectionAlgorithm:
         complexity = max(req_ctx.get("complexity_score", 1.0), 1e-6)
         ctx_len = model.get("context_length", 8192)
         if est_tokens > ctx_len:
+            # Log model rejection for debugging
+            model_id = model.get("name") or model.get("id") or "unknown"
+            logger.warning(f"Model rejected: {model_id} - estimated tokens ({est_tokens}) exceed context length ({ctx_len})")
             return 0.0
         tier = float(model.get("tier_score", 0.7))
         base = min(1.0, tier / complexity)

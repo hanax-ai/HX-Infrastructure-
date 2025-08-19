@@ -36,7 +36,7 @@ config/
 **Files**: 3 config files (1 existing + 2 NEW)  
 
 ### 📁 `/gateway/` - Runtime Directory
-```
+```text
 gateway/
 ├── backups/                        # Configuration backups
 │   ├── config-complete.yaml        # Complete model configuration

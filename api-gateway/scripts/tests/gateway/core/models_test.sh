@@ -16,7 +16,12 @@ fi
 
 # Verify response is valid JSON
 if ! echo "$response" | jq empty 2>/dev/null; then
-    log_test "$TEST_NAME" "❌ FAIL: Invalid JSON response"
+    # Truncate response if very large (limit to 500 chars for readability)
+    response_preview="${response:0:500}"
+    if [[ ${#response} -gt 500 ]]; then
+        response_preview="${response_preview}... [truncated, ${#response} total chars]"
+    fi
+    log_test "$TEST_NAME" "❌ FAIL: Invalid JSON response. Raw response: $response_preview"
     exit 1
 fi
 
