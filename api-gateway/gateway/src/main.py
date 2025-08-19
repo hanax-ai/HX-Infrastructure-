@@ -1,11 +1,28 @@
 from fastapi import FastAPI, Request
 from starlette.responses import Response, JSONResponse
 import json, httpx
+import os
 
 # Upstream LiteLLM (already running on 4000)
 UPSTREAM = "http://127.0.0.1:4000"
 
 app = FastAPI()
+
+def check_auth(request: Request) -> bool:
+    """Check authentication using the same logic as SecurityMiddleware"""
+    # Allow health endpoints without auth
+    if request.url.path in ("/healthz", "/livez", "/readyz"):
+        return True
+    
+    # Check for valid bearer token
+    auth = request.headers.get("authorization", "")
+    if not auth.lower().startswith("bearer "):
+        return False
+    
+    token = auth.split(" ", 1)[1] if len(auth.split(" ", 1)) > 1 else ""
+    master_key = os.getenv("HX_MASTER_KEY") or os.getenv("MASTER_KEY") or "sk-hx-dev-default"
+    
+    return token == master_key
 
 @app.middleware("http")
 async def hx_pipeline(request: Request, call_next):
@@ -18,13 +35,22 @@ async def hx_pipeline(request: Request, call_next):
 
     # Only proxy /v1/* to LiteLLM; don't define any /v1 routes here.
     if path.startswith("/v1/"):
+        # Check authentication first
+        if not check_auth(request):
+            return JSONResponse(
+                {"error": "Unauthorized"},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        
         # Read/possibly transform body
         body = await request.body()
         if path == "/v1/embeddings" and method == "POST":
             try:
                 payload = json.loads(body or b"{}")
-                if isinstance(payload, dict) and "input" in payload and "prompt" not in payload:
-                    payload["prompt"] = payload.pop("input")
+                # Fix: map "prompt" → "input" when payload has prompt but not input
+                if isinstance(payload, dict) and "prompt" in payload and "input" not in payload:
+                    payload["input"] = payload.pop("prompt")
                     body = json.dumps(payload).encode("utf-8")
             except Exception:
                 # If body isn't JSON, just pass it through unchanged
@@ -35,10 +61,9 @@ async def hx_pipeline(request: Request, call_next):
         if request.url.query:
             url += f"?{request.url.query}"
 
-        # Forward headers minus hop-by-hop / auto headers
-        fwd_headers = {k: v for k, v in request.headers.items()}
-        for h in ("host", "content-length", "accept-encoding", "connection", "transfer-encoding"):
-            fwd_headers.pop(h, None)
+        # Forward headers minus hop-by-hop / auto headers (case-insensitive)
+        hop_by_hop = {"host", "content-length", "accept-encoding", "connection", "transfer-encoding"}
+        fwd_headers = {k: v for k, v in request.headers.items() if k.lower() not in hop_by_hop}
 
         # Send to upstream
         try:

@@ -12,9 +12,16 @@ class ModelSelectionAlgorithm:
             return 0.0
         tier = float(model.get("tier_score", 0.7))
         base = min(1.0, tier / complexity)
-        # Dynamics
-        load = current_load_penalty(model["name"])
-        perf = performance_bonus(model["name"])
+        # Dynamics - safe name extraction
+        model_name = model.get("name") or model.get("id", "unknown")
+        if not model_name or model_name == "unknown":
+            # Log warning and use fallback
+            import logging
+            logging.getLogger(__name__).warning(f"Model missing name/id: {model}")
+            model_name = "fallback"
+        
+        load = current_load_penalty(model_name)
+        perf = performance_bonus(model_name)
         spec = specialization_bonus(model, req_ctx.get("domain"))
         return base * (1.0 - load) + perf + spec
 

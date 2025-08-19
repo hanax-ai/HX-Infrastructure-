@@ -17,7 +17,7 @@ else
 fi
 
 # Preflight checks for required commands
-for cmd in systemctl tar find; do
+for cmd in systemctl tar find rsync; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
         echo "❌ Required command not found: $cmd" >&2
         exit 1
@@ -72,10 +72,10 @@ SNAP="${TMP}/snapshot"
 
 # 3) Restore configs/scripts
 echo "--> Restoring config + scripts"
-sudo mkdir -p "${BASE}/config" "${BASE}/scripts/tests" "${BASE}/scripts/service"
-sudo rsync -a "${SNAP}/config/api-gateway/" "${BASE}/config/api-gateway/"
-sudo rsync -a "${SNAP}/scripts/tests/gateway/" "${BASE}/scripts/tests/gateway/"
-sudo rsync -a "${SNAP}/scripts/service/api-gateway/" "${BASE}/scripts/service/api-gateway/"
+${SUDO} mkdir -p "${BASE}/config" "${BASE}/scripts/tests" "${BASE}/scripts/service"
+${SUDO} rsync -a "${SNAP}/config/api-gateway/" "${BASE}/config/api-gateway/"
+${SUDO} rsync -a "${SNAP}/scripts/tests/gateway/" "${BASE}/scripts/tests/gateway/"
+${SUDO} rsync -a "${SNAP}/scripts/service/api-gateway/" "${BASE}/scripts/service/api-gateway/"
 
 # 4) Restore systemd units
 echo "--> Restoring systemd units"

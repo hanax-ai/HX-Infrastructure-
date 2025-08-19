@@ -1,12 +1,12 @@
 # /opt/HX-Infrastructure-/api-gateway/gateway/src/gateway_pipeline.py
 from typing import Any, Dict, List, Optional
 from fastapi import Request, Response
-from middlewares.base import MiddlewareBase
-from middlewares.security import SecurityMiddleware
-from middlewares.validation import ValidationMiddleware
-from middlewares.transform import TransformMiddleware
-from middlewares.routing import RoutingMiddleware
-from middlewares.execution import ExecutionMiddleware
+from .middlewares.base import MiddlewareBase
+from .middlewares.security import SecurityMiddleware
+from .middlewares.validation import ValidationMiddleware
+from .middlewares.transform import TransformMiddleware
+from .middlewares.routing import RoutingMiddleware
+from .middlewares.execution import ExecutionMiddleware
 
 class GatewayPipeline:
     def __init__(self, middlewares: Optional[List[MiddlewareBase]] = None):

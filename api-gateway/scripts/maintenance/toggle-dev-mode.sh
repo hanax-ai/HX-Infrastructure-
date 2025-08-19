@@ -80,8 +80,10 @@ enable_dev_mode() {
         sudo find "$API_GATEWAY_DIR/x-Docs" -type f -exec chmod 644 {} \;
     fi
     
-    # Make sure service scripts remain executable
-    find "$API_GATEWAY_DIR/scripts" -name "*.sh" -exec sudo chmod +x {} \;
+    # Make sure service scripts remain executable (if directory exists)
+    if [ -d "$API_GATEWAY_DIR/scripts" ]; then
+        find "$API_GATEWAY_DIR/scripts" -name "*.sh" -exec sudo chmod +x {} \;
+    fi
     
     echo "✅ Development mode enabled"
     echo "   VS Code can now edit configuration files"
@@ -104,7 +106,10 @@ disable_dev_mode() {
     # Set production permissions
     sudo chmod -R 750 "$API_GATEWAY_DIR/scripts"
     sudo chmod -R 750 "$API_GATEWAY_DIR/config"
-    sudo chmod -R 644 "$API_GATEWAY_DIR/x-Docs"
+    
+    # Set permissions separately for directories and files in x-Docs
+    find "$API_GATEWAY_DIR/x-Docs" -type d -exec sudo chmod 755 {} \;
+    find "$API_GATEWAY_DIR/x-Docs" -type f -exec sudo chmod 644 {} \;
     
     # Ensure config files are readable by service (secure permissions)
     sudo find "$API_GATEWAY_DIR/config" -name "*.yaml" -exec chmod 640 {} \;

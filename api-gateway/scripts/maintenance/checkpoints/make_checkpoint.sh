@@ -9,13 +9,11 @@ for cmd in tar find sha256sum curl python3; do
     fi
 done
 
-# Check for pip3 first, then fall back to pip
-if command -v pip3 >/dev/null 2>&1; then
-    PIP_CMD="pip3"
-elif command -v pip >/dev/null 2>&1; then
-    PIP_CMD="pip"
+# Check for python3 -m pip availability
+if python3 -m pip --version >/dev/null 2>&1; then
+    PIP_MODULE="pip"
 else
-    missing_deps+=("pip3")
+    missing_deps+=("python3-pip")
 fi
 
 if [[ ${#missing_deps[@]} -gt 0 ]]; then
@@ -67,7 +65,7 @@ find "${LOGDIR}" -type f -name "gw-smoke-*.log" -printf "%T@ %p\n" 2>/dev/null \
  | sort -nr | head -3 | awk '{print $2}' | xargs -r -I{} cp -a "{}" "${TMP}/snapshot/logs/" || true
 # 5) Python env & litellm version
 mkdir -p "${TMP}/snapshot/env"
-python3 -m "${PIP_CMD}" freeze > "${TMP}/snapshot/env/pip-freeze.txt" || true
+python3 -m "${PIP_MODULE}" freeze > "${TMP}/snapshot/env/pip-freeze.txt" || true
 python3 - <<'PY' > "${TMP}/snapshot/env/litellm-version.txt" || true
 try:
     import importlib.metadata as md
