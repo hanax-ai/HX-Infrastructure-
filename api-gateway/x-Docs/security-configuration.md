@@ -66,6 +66,26 @@ This guide documents the security hardening implemented for the HX-Infrastructur
    sudo tee /etc/systemd/system/hx-litellm-gateway.service.d/override.conf > /dev/null << 'OVERRIDE'
    [Service]
    EnvironmentFile=/etc/hx-litellm-gateway.env
+   
+   # Security hardening directives
+   User=hx-gateway
+   Group=hx-gateway
+   NoNewPrivileges=yes
+   PrivateTmp=yes
+   PrivateDevices=yes
+   ProtectSystem=strict
+   ProtectHome=yes
+   ProtectKernelTunables=yes
+   ProtectKernelModules=yes
+   ProtectControlGroups=yes
+   RestrictSUIDSGID=yes
+   RestrictRealtime=yes
+   LockPersonality=yes
+   MemoryDenyWriteExecute=yes
+   
+   # Allow write access to specific directories needed by the gateway
+   ReadWritePaths=/opt/HX-Infrastructure-/api-gateway/logs
+   ReadWritePaths=/tmp
    OVERRIDE
    ```
 
