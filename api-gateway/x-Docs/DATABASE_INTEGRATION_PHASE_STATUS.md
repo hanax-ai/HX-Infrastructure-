@@ -201,7 +201,7 @@ ENABLE_HEALTH_ENDPOINTS=true
 | **D) DB-Guard Middleware** | ✅ **DEPLOYED** | Route protection and health endpoints implemented |
 | **E) Pipeline Integration** | ✅ **DEPLOYED** | DB-Guard registered in gateway_pipeline.py after security |
 | **F) Service Restarts** | ✅ **COMPLETED** | Both LiteLLM and wrapper services restarted |
-| **G) Path Normalization** | ✅ **COMPLETED** | Canonical symlink `/opt/HX-Dev-Test-Infrastructure` created |
+| **G) Path Normalization** | ✅ **COMPLETED** | Canonical path `/opt/HX-Infrastructure-` established |
 
 ### 🔧 **Implementation Summary - What We Did:**
 
@@ -240,9 +240,9 @@ ENABLE_HEALTH_ENDPOINTS=true
    - **Health Checks:** Basic endpoints responding (wrapper on :4010)
 
 7. **✅ Path normalization completed**
-   - **Canonical Path:** `/opt/HX-Dev-Test-Infrastructure` → `/opt/HX-Infrastructure-`
-   - **Backward Compatibility:** Both paths functional
-   - **Scripts Ready:** Wiring script has fallback logic for both paths
+   - **Canonical Path:** `/opt/HX-Infrastructure-`
+   - **Backward Compatibility:** Obsolete path removed.
+   - **Scripts Ready:** Wiring script updated to use canonical path.
 
 ## 🔄 Next Steps
 
@@ -309,8 +309,8 @@ ENABLE_HEALTH_ENDPOINTS=true
 
 #### **Preliminary Checks:**
 - ✅ **Config file confirmed:** `/opt/HX-Infrastructure-/api-gateway/config/api-gateway/config.yaml` exists
-- ✅ **Symbolic link verified:** `/opt/HX-Dev-Test-Infrastructure` → `/opt/HX-Infrastructure-`
-- ✅ **Script fallback logic:** Will work correctly with existing paths
+- ✅ **Symbolic link verified:** `/opt/HX-Infrastructure-` is the canonical path.
+- ✅ **Script fallback logic:** Logic removed; script uses canonical path directly.
 
 #### **Wire-DB-Cache Script Execution (Updated Script):**
 ```bash

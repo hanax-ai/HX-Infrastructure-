@@ -3,11 +3,10 @@ set -euo pipefail
 
 echo "=== [HX-GW] Wire Postgres + Redis (+Qdrant health) into LiteLLM + Wrapper ==="
 
-# -------- Resolve base path (canonical first, fallback accepted) --------
-ROOT="/opt/HX-Dev-Test-Infrastructure"
-[ -d "$ROOT" ] || ROOT="/opt/HX-Infrastructure-"
+# -------- Resolve base path --------
+ROOT="/opt/HX-Infrastructure-"
 if [ ! -d "$ROOT" ]; then
-  echo "❌ Neither /opt/HX-Dev-Test-Infrastructure nor /opt/HX-Infrastructure- exists"; exit 1
+  echo "❌ Base directory /opt/HX-Infrastructure- not found."; exit 1
 fi
 
 GW_BASE="$ROOT/api-gateway"
