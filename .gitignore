@@ -20,3 +20,28 @@ venv/
 llm-01/logs/
 llm-01/models/
 llm-01/data/
+
+# Cache directories
+.cache/
+.npm/
+node_modules/
+.prisma/
+*.cache
+*/cache/
+*/.cache/
+*/.npm/
+*/node_modules/
+*/.prisma/
+
+# Large binaries and executables
+*.exe
+*.dll
+*.so
+*.dylib
+*/bin/node
+*/bin/npm
+**/nodeenv/
+
+# Prisma cache and generated files
+api-gateway/gateway/.cache/
+api-gateway/gateway/.npm/

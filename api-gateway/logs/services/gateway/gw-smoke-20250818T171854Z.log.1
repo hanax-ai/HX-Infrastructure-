@@ -1,0 +1,45 @@
+=== Gateway Smoke Test Suite @ 20250818T171854Z ===
+API Gateway: http://192.168.10.39:4000
+Log File: /opt/HX-Infrastructure-/api-gateway/logs/services/gateway/gw-smoke-20250818T171854Z.log
+
+--- Testing: models_test ---
+[2025-08-18T17:18:54Z] models_test: Testing /v1/models endpoint
+[2025-08-18T17:18:54Z] models_test: ✅ SUCCESS: Found 16 models: emb-premium emb-perf emb-light llm01-llama3.2-3b llm01-qwen3-1.7b llm01-mistral-small3.2 llm02-cogito-32b llm02-deepcoder-14b llm02-dolphin3-8b llm02-gemma2-2b llm02-phi3 hx-chat-fast hx-chat hx-chat-code hx-chat-premium hx-chat-creative 
+✅ PASS: models_test
+
+--- Testing: embeddings_test ---
+[2025-08-18T17:18:54Z] embeddings_test: Testing /v1/embeddings endpoint
+[2025-08-18T17:18:54Z] embeddings_test: Testing emb-premium (expecting 1024 dimensions)
+[2025-08-18T17:18:55Z] embeddings_test: ✅ emb-premium: 1024 dimensions (correct)
+[2025-08-18T17:18:55Z] embeddings_test: Testing emb-perf (expecting 768 dimensions)
+[2025-08-18T17:18:56Z] embeddings_test: ✅ emb-perf: 768 dimensions (correct)
+[2025-08-18T17:18:56Z] embeddings_test: Testing emb-light (expecting 384 dimensions)
+[2025-08-18T17:18:58Z] embeddings_test: ✅ emb-light: 384 dimensions (correct)
+[2025-08-18T17:18:58Z] embeddings_test: ✅ SUCCESS: All embedding models working correctly
+✅ PASS: embeddings_test
+
+--- Testing: chat_test ---
+[2025-08-18T17:18:58Z] chat_test: Testing /v1/chat/completions endpoint
+[2025-08-18T17:18:58Z] chat_test: Testing chat with hx-chat
+[2025-08-18T17:18:59Z] chat_test: ✅ hx-chat: Response contains expected text
+[2025-08-18T17:18:59Z] chat_test: ✅ SUCCESS: Chat completions working correctly
+✅ PASS: chat_test
+
+--- Testing: routing_test ---
+[2025-08-18T17:18:59Z] routing_test: Testing model routing across backends
+[2025-08-18T17:18:59Z] routing_test: Testing routing for llm01-llama3.2-3b
+[2025-08-18T17:18:59Z] routing_test: ✅ llm01-llama3.2-3b: Routing successful
+[2025-08-18T17:18:59Z] routing_test: Testing routing for llm02-phi3
+[2025-08-18T17:19:01Z] routing_test: ✅ llm02-phi3: Routing successful
+[2025-08-18T17:19:01Z] routing_test: Testing routing for llm02-gemma2-2b
+[2025-08-18T17:19:04Z] routing_test: ✅ llm02-gemma2-2b: Routing successful
+[2025-08-18T17:19:04Z] routing_test: Testing routing for hx-chat
+[2025-08-18T17:19:04Z] routing_test: ✅ hx-chat: Routing successful
+[2025-08-18T17:19:04Z] routing_test: ✅ SUCCESS: All model routing working correctly
+✅ PASS: routing_test
+
+=== Test Suite Results ===
+Total Tests: 4
+Failed Tests: 0
+Success Rate: 100%
+🎉 ALL TESTS PASSED ✅

@@ -18,10 +18,16 @@ class GatewayPipeline:
         if middlewares is None:
             # Initialize database services
             db_config = {
-                'postgres_url': os.getenv("PG_URL"),
+                'postgres_url': os.getenv("DATABASE_URL"),
                 'redis_url': os.getenv("REDIS_URL"), 
                 'qdrant_url': os.getenv("QDRANT_URL")
             }
+            
+            # Validate required database connections
+            if not db_config['postgres_url']:
+                raise ValueError("DATABASE_URL environment variable is required but not set")
+            if not db_config['redis_url']:
+                raise ValueError("REDIS_URL environment variable is required but not set")
             
             # Create DB-Guard middleware with service configuration
             dbguard = DBGuardMiddleware(db_config)
