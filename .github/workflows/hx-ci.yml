@@ -1,0 +1,69 @@
+name: HX CI — Lint & Validate
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y yamllint shellcheck
+          python3 -m pip install --upgrade pip
+          pip install ruff
+
+      - name: YAML lint (fallback to default rules if no config)
+        run: |
+          if [ -f ".yamllint.yaml" ] || [ -f ".yamllint.yml" ]; then
+            yamllint -s -c .yamllint.yaml . 2>/dev/null || \
+            yamllint -s -c .yamllint.yml .
+          else
+            yamllint -s .
+          fi
+
+      - name: Shellcheck (Bash scripts)
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          files=(**/*.sh)
+          if [ ${#files[@]} -gt 0 ]; then
+            shellcheck "${files[@]}"
+          else
+            echo "No shell scripts to lint."
+          fi
+
+      - name: Python lint (ruff)
+        run: |
+          if command -v ruff >/dev/null 2>&1; then
+            ruff check .
+          else
+            echo "ruff not found"; exit 1
+          fi
+
+      - name: Path hygiene — no references to old Dev-Test root
+        run: |
+          if grep -RIl "/opt/HX-Dev-Test-Infrastructure" . >/dev/null 2>&1; then
+            echo "ERROR: Found stale path references to /opt/HX-Dev-Test-Infrastructure"
+            echo "These must be replaced with /opt/HX-Infrastructure-"
+            grep -RIl "/opt/HX-Dev-Test-Infrastructure" .
+            exit 1
+          else
+            echo "OK: no stale Dev-Test path references."
+          fi
+
+      - name: Required files present
+        run: |
+          test -d ".github" || { echo ".github directory missing"; exit 1; }
+          test -f ".github/copilot-instructions.md" || { echo "Missing .github/copilot-instructions.md"; exit 1; }
+          echo "Required files present."
