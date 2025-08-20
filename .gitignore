@@ -11,6 +11,11 @@ venv/
 *.bak
 *.swp
 
+# Environment files with potential secrets
+*.env
+!*.env.example
+!*.env.template
+
 # Do not track runtime data
 llm-01/logs/
 llm-01/models/
