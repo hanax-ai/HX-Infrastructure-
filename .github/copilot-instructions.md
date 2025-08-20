@@ -1,82 +1,190 @@
-# HX-Infrastructure AI Agent Instructions
+GitHub Copilot – Project Instructions (HX-Infrastructure) (Revised)
+Purpose
+These instructions shape Copilot suggestions for the HX-Infrastructure repository. The goals are: (1) enforce architecture and coding standards, (2) prefer explicit, well-validated steps, and (3) align output with our stack (FastAPI Gateway, Ollama-based LLM servers, Orchestration/Embeddings, Jenkins+Ansible CI/CD, Terraform, PostgreSQL/Redis).
 
-This document provides essential guidelines for working within the HX-Infrastructure repository. Adhering to these standards is mandatory for all contributions.
+Project Context (Authoritative)
+Single root: /opt/HX-Infrastructure-
 
-## 🏗️ Architecture Overview
+Primary components:
 
-The HX-Infrastructure is a multi-node platform for deploying and managing Large Language Models (LLMs). The core components are:
-- **`api-gateway`**: A SOLID-compliant reverse proxy for LiteLLM backends. It handles request transformation and routing.
-- **`llm-01`**: The primary production LLM inference node.
-- **`llm-02`**: A baseline reference node, architecturally aligned with `llm-01`.
-- **`orc`**: An orchestration server dedicated to text embedding models and services.
-- **`lib/` & `scripts/`**: Centralized locations for shared libraries and scripts that are symlinked by the individual services.
+API Gateway: FastAPI, OpenAI-compatible endpoints (/v1/chat/completions, /v1/models), httpx, pydantic-settings.
 
-The architecture heavily emphasizes standardization. All nodes use shared service management scripts and canonical storage paths like `/mnt/active_llm_models`.
+LLM Servers: Ollama 0.10.x, single-port (11434), multiple models via model ID.
 
-## ⚙️ Key Conventions & Standards
+Models in active use: Mixtral-8x7B, DeepSeek-R1 (coder 14B variant), Nous Hermes 2 Mixtral 8x7B DPO, Phi-3 Mini 4K Instruct, Yi-34B (as applicable), OpenChat 3.5, MiMo-VL-7B, imp-v1-3b.
 
-Refer to the main engineering standards in `.rules` for detailed protocols.
+Data tier: PostgreSQL 17.x (5432) + Pgpool-II (5433), Redis 8.x (6379).
 
-1.  **Configuration Management (Rule 0.25)**:
-    - **No hardcoded values.** All configuration must be in `.env` or `.yaml` files.
-    - Service configurations are typically located in `/{component}/config/ollama/`. For example, `llm-01/config/ollama/ollama.env`.
-    - The `OLLAMA_MODELS_AVAILABLE` variable in `ollama.env` is the single source of truth for the models a service provides.
+Observability: Prometheus/Grafana off-box; services emit metrics only.
 
-2.  **File System (Rule 0.26)**:
-    - Follow the existing directory structure. New scripts go into `scripts/`, shared libraries into `lib/`, and component-specific code into the component's directory.
-    - Service scripts are standardized. For example, each service has `scripts/service/` which is often a symlink to the global `/opt/scripts/service/ollama/` in production.
+Automation: Jenkins pipelines trigger Ansible playbooks; Terraform for infra as code.
 
-3.  **Documentation (MANDATORY)**:
-    - After **every** change, you **must** update the relevant documentation in the component's `x-Docs/` directory.
-    - **Deployment Status**: Update `x-Docs/deployment-status-tracker.md` with the status (✅ COMPLETED, 🔄 PENDING, ❌ FAILED), timestamp, and validation results.
-    - **Code Enhancements**: Update `x-Docs/code-enhancements.md` with a description of the problem, solution, and benefits.
+Global Principles
+SOLID/OOP (when applicable): single responsibility, explicit interfaces, dependency inversion with clear constructor injection or settings objects.
 
-## Critical Workflows
+Fail loudly with helpful errors and actionable messages.
 
-### Service Management
+No secrets in repo: use env vars, Ansible Vault, Jenkins creds; never hardcode.
 
-All services follow a standard lifecycle management protocol using shared scripts. When asked to manage a service, use these scripts.
+Idempotency: scripts/playbooks can be run repeatedly.
 
-```bash
-# Start a service (and verify)
-/opt/scripts/service/ollama/start.sh
+Validation is mandatory: every task ends with a verification step.
 
-# Stop a service
-/opt/scripts/service/ollama/stop.sh
+Directory & File Standards
+Keep repo-root canonical and paths relative to /opt/HX-Infrastructure-.
 
-# Check service status
-/opt/scripts/service/ollama/status.sh
-```
+Prefer these locations:
 
-### Model & Configuration Validation
+api-gateway/ – FastAPI app (main.py, config.py, requirements.lock), docs, systemd notes.
 
-Before deploying any changes related to model configuration, you **must** run the validation script. This is a critical step to prevent misconfigurations.
+llm-01/, llm-02/ – node-specific scripts/config under scripts/, config/ollama/, services/.
 
-```bash
-# Validate the model configuration for a component
-./validate-model-config.sh {path_to_component}/config/ollama/ollama.env
-```
+orc/ – orchestration/embeddings node resources.
 
-### Testing
+lib/ – shared shell helpers (e.g., model-config.sh).
 
-The repository contains a suite of tests for different purposes.
-- **Smoke Tests**: For quick, basic functionality checks.
-- **Comprehensive Tests**: For more thorough validation.
-- **Performance Tests**: Located in `orc/scripts/tests/perf/embeddings/` for the embedding service.
+scripts/ – repo-wide utilities (Python/Bash).
 
-```bash
-# Run a basic smoke test for a service
-/opt/scripts/tests/smoke/ollama/smoke.sh
+.github/ – workflows, Copilot guidance, templates.
 
-# Run the comprehensive test suite
-/opt/scripts/tests/smoke/ollama/comprehensive-smoke.sh
-```
+Use kebab-case for file/dir names (except Python modules, which are snake_case).
 
-### External Verification
+Coding Standards
+Python (API Gateway & tools):
 
-For services that need to be accessed externally, use the `emb-external-verify.sh` script.
+Python 3.12; type hints required; pydantic v2+.
 
-```bash
-# Verify external connectivity to a host
-./emb-external-verify.sh <HOST_IP> [PORT]
-```
+Logging via logging with structured context; no print() in services.
+
+HTTP calls via httpx with appropriate timeouts. Implement retries carefully: apply them to idempotent methods (GET, PUT, DELETE) or on specific connection errors. Avoid automatically retrying POST requests to prevent duplicate processing.
+
+Separate config in config.py with pydantic-settings; do not import .env directly.
+
+Bash:
+
+set -Eeuo pipefail; explicit exits and trap on error.
+
+Check directories exist before creation; check files before writing.
+
+Emit clear success messages; sleep 5s when starting/stopping services to verify state.
+
+Ansible:
+
+Use roles; check_mode support where possible; handlers for service restarts.
+
+Templates for configs; no inline heredocs in tasks unless temporary scaffolding.
+
+Service Management Requirements
+When Copilot generates service commands (systemd or manual), always:
+
+Execute the action.
+
+sleep 5 seconds.
+
+Print a success confirmation, e.g., echo "Ollama started successfully!".
+Example (manual fallback):
+
+Bash
+
+nohup ollama serve >/var/log/ollama/ollama.out 2>&1 &
+sleep 5
+pgrep -x ollama >/dev/null && echo "Ollama started successfully!" || { echo "Ollama failed to start"; exit 1; }
+API Gateway (FastAPI) Guidelines
+Endpoints:
+
+/healthz – returns {"status":"ok"}
+
+/v1/models – list mapped model IDs from config.
+
+/v1/chat/completions – OpenAI-compatible streaming with StreamingResponse.
+
+Config:
+
+OLLAMA_BASE_URL or per-model mapping via env + config.py.
+
+Timeouts and backoff for upstream calls.
+
+Streaming:
+
+NDJSON or SSE-like chunks; do not buffer entire responses in memory.
+
+Ollama & Models
+Target port: 11434; remote hosts via OLLAMA_HOST/base URL in gateway config.
+
+Prefer quantization and model variants explicitly by ID (e.g., mixtral:8x7b-instruct-q5_K_M when relevant).
+
+Model pulls should be scripted with validation (hash/size check if available).
+
+Security & Compliance
+No secrets, tokens, or passwords committed. Example placeholders:
+
+POSTGRES_PASSWORD → use Ansible Vault / Jenkins credentials.
+
+Use umask 027 for generated files; restrict perms on /etc/* configs to root:root, 0640 unless service requires otherwise.
+
+TLS handled at edge (gateway or reverse proxy); services should support being behind TLS.
+
+CI/CD Expectations
+Jenkins pipelines must:
+
+Lint (YAML, Python), run --syntax-check for Ansible.
+
+Gate deploy steps behind manual approvals when touching prod.
+
+Archive logs/artifacts outside the repo; never commit runtime logs.
+
+Documentation & Examples
+Provide example blocks for:
+
+Ansible task with validation step.
+
+FastAPI endpoint with streaming.
+
+Bash service control snippet (start/stop with 5s wait and success echo).
+
+Example — Ansible task (idempotent with validation)
+YAML
+
+- name: Ensure ollama service is started
+  service:
+    name: ollama
+    state: started
+    enabled: true
+  register: ollama_service
+
+- name: Validate ollama is responding
+  uri:
+    url: "http://localhost:11434/api/tags"
+    method: GET
+    status_code: 200
+  register: ollama_health
+  retries: 3
+  delay: 5
+  until: ollama_health.status == 200
+Example — FastAPI streaming proxy (sketch)
+Python
+
+@app.post("/v1/chat/completions")
+async def chat(req: ChatCompletionRequest):
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        upstream = client.stream("POST", f"{cfg.ollama}/v1/chat/completions", json=req.model_dump())
+        return StreamingResponse((await upstream).__aiter__(), media_type="application/json")
+Copilot “Do / Don’t”
+Do: generate explicit, validated steps; use our directory standards; include final checks.
+
+Do: favor composable helpers over monoliths; keep functions short with types.
+
+Don’t: assume local paths outside /opt/HX-Infrastructure-; never suggest committing secrets/logs.
+
+Don’t: create multiple services for each model—Ollama is single-port, multi-model.
+
+Review Checklist (for PR templates/workflows)
+No secrets or logs committed; .gitignore respected.
+
+Validation steps included for new tasks/services.
+
+Paths use /opt/HX-Infrastructure- (no references to Dev-Test).
+
+Configurable via env; defaults safe; errors actionable.
+
+Streaming endpoints tested without buffering entire response.

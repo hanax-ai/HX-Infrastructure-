@@ -1,5 +1,5 @@
 general_settings:
-  master_key: ${MASTER_KEY:?MASTER_KEY environment variable must be set}
+#  master_key: ${LITELLM_MASTER_KEY}
   background_health_checks: false
 
 model_list:
