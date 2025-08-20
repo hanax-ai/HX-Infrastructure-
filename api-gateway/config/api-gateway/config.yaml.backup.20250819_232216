@@ -1,0 +1,24 @@
+general_settings:
+  master_key: ${HX_MASTER_KEY:?HX_MASTER_KEY environment variable must be set}
+  background_health_checks: false
+
+model_list:
+  # --- Embeddings (orc) ---
+  - model_name: emb-premium
+    litellm_params: { model: "ollama/mxbai-embed-large", api_base: "http://192.168.10.31:11434" }
+  - model_name: emb-perf
+    litellm_params: { model: "ollama/nomic-embed-text",  api_base: "http://192.168.10.31:11434" }
+  - model_name: emb-light
+    litellm_params: { model: "ollama/all-minilm",       api_base: "http://192.168.10.31:11434" }
+
+  # --- Chat/Instruct (llm-01 + llm-02) ---
+  - model_name: llm01-llama3.2-3b
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: "http://192.168.10.29:11434" }
+  - model_name: llm02-phi3
+    litellm_params: { model: "ollama/phi3:latest", api_base: "http://192.168.10.28:11434" }
+  - model_name: llm02-gemma2-2b
+    litellm_params: { model: "ollama/gemma2:2b",   api_base: "http://192.168.10.28:11434" }
+
+  # --- Model Group for Load Balancing ---
+  - model_name: hx-chat
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: "http://192.168.10.29:11434" }
