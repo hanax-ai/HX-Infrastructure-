@@ -36,7 +36,11 @@ class ExecutionMiddleware(MiddlewareBase):
             url += f"?{request.url.query}"
 
         # Header filtering logic migrated from main.py
-        hop_by_hop = {"host", "content-length", "accept-encoding", "connection", "transfer-encoding"}
+        hop_by_hop = {
+            "host", "content-length", "accept-encoding", "connection", 
+            "transfer-encoding", "keep-alive", "upgrade", "te", "trailer", 
+            "proxy-connection"
+        }
         sensitive_headers = {
             "authorization", "cookie", "set-cookie", "x-forwarded-for", "x-real-ip",
             "x-forwarded-proto", "x-forwarded-host", "x-original-forwarded-for",
@@ -48,6 +52,10 @@ class ExecutionMiddleware(MiddlewareBase):
             k: v for k, v in request.headers.items()
             if k.lower() not in hop_by_hop and k.lower() not in sensitive_headers
         }
+
+        # If the body was transformed, content-encoding may no longer be valid.
+        if "transformed_body" in context:
+            fwd_headers.pop("content-encoding", None)
 
         # Upstream authentication
         upstream_key = os.getenv("HX_UPSTREAM_KEY")
@@ -84,15 +92,17 @@ class ExecutionMiddleware(MiddlewareBase):
         }
         
         # Add base security headers, but handle CSP separately
-        resp_headers.update({
-            "X-Content-Type-Options": "nosniff",
-            "X-Frame-Options": "DENY",
-            "X-XSS-Protection": "1; mode=block",
-            "Referrer-Policy": "strict-origin-when-cross-origin",
-        })
+        if "x-content-type-options" not in resp_headers:
+            resp_headers["X-Content-Type-Options"] = "nosniff"
+        if "x-frame-options" not in resp_headers:
+            resp_headers["X-Frame-Options"] = "DENY"
+        if "x-xss-protection" not in resp_headers:
+            resp_headers["X-XSS-Protection"] = "1; mode=block"
+        if "referrer-policy" not in resp_headers:
+            resp_headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Conditionally set Content-Security-Policy, respecting upstream's if present
-        if "content-security-policy" not in (k.lower() for k in resp_headers.keys()):
+        if not resp_headers.get("content-security-policy"):
             content_type = resp_headers.get("content-type", "").lower()
             if content_type.startswith("text/html"):
                 # For HTML, allow content from the same origin as a safe default.

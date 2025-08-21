@@ -31,7 +31,7 @@ cd /opt/HX-Infrastructure-/api-gateway/
 
 # Set required environment variables
 export PYTHONPATH=$(pwd)/gateway
-export LITELLM_MASTER_KEY="test-master-key"
+export MASTER_KEY="test-master-key"
 
 # Run the test suite
 pytest -q gateway/tests/
@@ -124,9 +124,9 @@ With the refactoring and testing complete, the gateway is considered feature-com
 ## 🔍 Troubleshooting
 
 ### ❌ Test Failures
-- **Cause**: Missing or incorrect environment variables (`PYTHONPATH`, `LITELLM_MASTER_KEY`).
+- **Cause**: Missing or incorrect environment variables (`PYTHONPATH`, `MASTER_KEY`).
 - **Solution**: Ensure the variables are exported correctly as shown in the "Quick Start" section.
-- **Check**: Run `env | grep -E "PYTHONPATH|LITELLM_MASTER_KEY"` to verify they are set in your shell.
+- **Check**: Run `env | grep -E "PYTHONPATH|MASTER_KEY"` to verify they are set in your shell.
 
 ### ❌ Service Won't Start
 - **Check**: `sudo journalctl -u hx-gateway-ml -f` for detailed error messages.

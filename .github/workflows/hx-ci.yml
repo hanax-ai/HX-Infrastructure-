@@ -53,10 +53,10 @@ jobs:
 
       - name: Path hygiene — no references to old Dev-Test root
         run: |
-          if grep -RIl "/opt/HX-Dev-Test-Infrastructure" . >/dev/null 2>&1; then
+          if grep -RIl --exclude-dir=.git "/opt/HX-Dev-Test-Infrastructure" . >/dev/null 2>&1; then
             echo "ERROR: Found stale path references to /opt/HX-Dev-Test-Infrastructure"
             echo "These must be replaced with /opt/HX-Infrastructure-"
-            grep -RIl "/opt/HX-Dev-Test-Infrastructure" .
+            grep -RIl --exclude-dir=.git "/opt/HX-Dev-Test-Infrastructure" .
             exit 1
           else
             echo "OK: no stale Dev-Test path references."

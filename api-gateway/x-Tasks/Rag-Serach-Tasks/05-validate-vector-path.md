@@ -32,8 +32,11 @@ To verify that the `/v1/rag/search` endpoint correctly handles authenticated req
 1.  **Run Validation Command**
     ```bash
     # --- Test Setup ---
+    # Ensure AUTH_TOKEN is set in your environment.
+    # Example: export AUTH_TOKEN="your-secret-api-key"
+    # Note: Never commit real keys.
     BASE_URL="http://127.0.0.1:4000"
-    AUTH_HEADER="Authorization: Bearer sk-mDyhCELJX..." # Use a valid key
+    AUTH_HEADER="Authorization: Bearer ${AUTH_TOKEN}"
 
     # --- Test Execution ---
     echo "--- Testing Vector Path (expects 200 OK) ---"

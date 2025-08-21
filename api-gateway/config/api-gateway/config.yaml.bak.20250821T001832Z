@@ -1,0 +1,64 @@
+general_settings:
+  master_key: ${MASTER_KEY:?MASTER_KEY environment variable must be set}
+  background_health_checks: true
+  health_check_interval: 300  # Check every 5 minutes
+  health_check_timeout: 30    # 30 second timeout for health probes
+  health_check_max_retries: 3 # Retry failed checks 3 times before marking as unhealthy
+  health_check_backoff: 10    # Wait 10 seconds between retries
+
+# --- API Base URL Configuration ---
+# Centralized server endpoints with environment variable support
+api_bases:
+  orc_base: &orc_api_base "${ORC_API_BASE:-http://192.168.10.31:11434}"
+  llm01_base: &llm01_api_base "${LLM01_API_BASE:-http://192.168.10.29:11434}"
+  llm02_base: &llm02_api_base "${LLM02_API_BASE:-http://192.168.10.28:11434}"
+
+model_list:
+  # --- Embeddings (orc - configurable via ORC_API_BASE) ---
+  - model_name: emb-premium
+    litellm_params: { model: "ollama/mxbai-embed-large", api_base: *orc_api_base }
+  - model_name: emb-perf
+    litellm_params: { model: "ollama/nomic-embed-text", api_base: *orc_api_base }
+  - model_name: emb-light
+    litellm_params: { model: "ollama/all-minilm", api_base: *orc_api_base }
+
+  # --- LLM-01 Models (configurable via LLM01_API_BASE) ---
+  - model_name: llm01-llama3.2-3b
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: *llm01_api_base }
+  - model_name: llm01-qwen3-1.7b
+    litellm_params: { model: "ollama/qwen3:1.7b", api_base: *llm01_api_base }
+  - model_name: llm01-mistral-small3.2
+    litellm_params: { model: "ollama/mistral-small3.2:latest", api_base: *llm01_api_base }
+
+  # --- LLM-02 Models (configurable via LLM02_API_BASE) ---
+  - model_name: llm02-cogito-32b
+    litellm_params: { model: "ollama/cogito:32b", api_base: *llm02_api_base }
+  - model_name: llm02-deepcoder-14b
+    litellm_params: { model: "ollama/deepcoder:14b", api_base: *llm02_api_base }
+  - model_name: llm02-dolphin3-8b
+    litellm_params: { model: "ollama/dolphin3:8b", api_base: *llm02_api_base }
+  - model_name: llm02-gemma2-2b
+    litellm_params: { model: "ollama/gemma2:2b", api_base: *llm02_api_base }
+  - model_name: llm02-phi3
+    litellm_params: { model: "ollama/phi3:latest", api_base: *llm02_api_base }
+
+  # --- Load Balancer Groups ---
+  # Speed-optimized (small, fast models)
+  - model_name: hx-chat-fast
+    litellm_params: { model: "ollama/qwen3:1.7b", api_base: *llm01_api_base }
+  
+  # Balanced performance
+  - model_name: hx-chat
+    litellm_params: { model: "ollama/llama3.2:3b", api_base: *llm01_api_base }
+  
+  # Code-specialized
+  - model_name: hx-chat-code
+    litellm_params: { model: "ollama/deepcoder:14b", api_base: *llm02_api_base }
+  
+  # High-quality reasoning
+  - model_name: hx-chat-premium
+    litellm_params: { model: "ollama/cogito:32b", api_base: *llm02_api_base }
+  
+  # Creative/conversational
+  - model_name: hx-chat-creative
+    litellm_params: { model: "ollama/dolphin3:8b", api_base: *llm02_api_base }

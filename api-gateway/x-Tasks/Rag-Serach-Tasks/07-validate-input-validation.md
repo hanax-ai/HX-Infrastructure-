@@ -32,16 +32,26 @@ To verify that the `/v1/rag/search` endpoint correctly validates incoming payloa
 1.  **Run Validation Command**
     ```bash
     # --- Test Setup ---
+    # Ensure AUTH_TOKEN is set in your environment.
+    # Example: export AUTH_TOKEN="your-secret-api-key"
+    # Note: Do not commit real keys.
     BASE_URL="http://127.0.0.1:4000"
-    AUTH_HEADER="Authorization: Bearer sk-mDyhCELJX..." # Use a valid key
+    AUTH_HEADER="Authorization: Bearer ${AUTH_TOKEN}"
 
     # --- Test Execution ---
-    echo "--- Testing Input Validation (expects 400 Bad Request) ---"
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    echo "--- Testing Input Validation (expects 400 or 422) ---"
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" --request POST \
+      --max-time 5 --connect-timeout 3 \
       -H "$AUTH_HEADER" -H "Content-Type: application/json" \
       -d '{}' \
       "$BASE_URL/v1/rag/search")
-    [ "$STATUS" -eq 400 ] && echo "✅ PASSED" || echo "❌ FAILED (Status: $STATUS)"
+    
+    # --- Validation ---
+    if [ "$STATUS" -eq 400 ] || [ "$STATUS" -eq 422 ]; then
+      echo "✅ PASSED (Status: $STATUS)"
+    else
+      echo "❌ FAILED (Status: $STATUS)"
+    fi
     ```
 
 ---

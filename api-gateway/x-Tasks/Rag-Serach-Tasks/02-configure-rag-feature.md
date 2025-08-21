@@ -20,7 +20,7 @@ To enable the new RAG search endpoint by setting the `ENABLE_RAG` feature flag w
 1.  **Create or Amend Systemd Override**
     - Use the `systemctl edit` command to create a configuration override for the gateway service. This is the recommended way to modify service definitions without altering the original service file.
     ```bash
-    sudo systemctl edit hx-litellm-gateway
+    sudo systemctl edit hx-gateway-ml
     ```
 2.  **Set Environment Variable**
     - Inside the editor, add the `[Service]` section if it doesn't exist and add the `Environment` directive to enable the feature.
@@ -46,7 +46,7 @@ To enable the new RAG search endpoint by setting the `ENABLE_RAG` feature flag w
 2.  **Verify Service Configuration**
     - Use `systemctl show` and `grep` to confirm the environment variable is loaded.
     ```bash
-    systemctl show hx-litellm-gateway | grep ENABLE_RAG
+    systemctl show hx-gateway-ml | grep ENABLE_RAG
     ```
 
 ---

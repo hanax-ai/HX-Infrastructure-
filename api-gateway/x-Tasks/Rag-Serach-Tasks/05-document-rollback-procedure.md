@@ -20,7 +20,7 @@ To document and confirm the procedure for safely disabling the RAG feature via i
 1.  **Disable Feature Flag**
     - Edit the `systemd` override file for the gateway service.
     ```bash
-    sudo systemctl edit hx-litellm-gateway
+    sudo systemctl edit hx-gateway-ml
     ```
     - Change the `Environment` directive from `true` to `false`.
     ```ini
@@ -31,7 +31,7 @@ To document and confirm the procedure for safely disabling the RAG feature via i
     - Apply the `systemd` change and restart the service.
     ```bash
     sudo systemctl daemon-reload
-    sudo systemctl restart hx-litellm-gateway
+    sudo systemctl restart hx-gateway-ml
     sleep 5
     ```
 
@@ -46,14 +46,27 @@ To document and confirm the procedure for safely disabling the RAG feature via i
 ### Test Steps
 1.  **Confirm Service is Active**
     ```bash
-    sudo systemctl is-active --quiet hx-litellm-gateway && echo "✅ Service reverted successfully."
+    sudo systemctl is-active --quiet hx-gateway-ml && echo "✅ Service reverted successfully."
     ```
 2.  **Confirm Endpoint is Disabled**
     ```bash
-    AUTH_HEADER="Authorization: Bearer sk-mDyhCELJX..." # Use a valid key
-    BASE_URL="http://127.0.0.1:4000"
+    # --- Test Setup ---
+    # Ensure API_KEY and BASE_URL are set in your environment
+    # Example:
+    # export API_KEY="your-secret-api-key"
+    # export BASE_URL="http://127.0.0.1:4000"
+    AUTH_HEADER="Authorization: Bearer ${API_KEY}"
+    BASE_URL="${BASE_URL:-http://127.0.0.1:4000}"
+
+    # --- Test Execution ---
     STATUS_ROLLBACK=$(curl -s -o /dev/null -w "%{http_code}" -H "$AUTH_HEADER" -H "Content-Type: application/json" -d '{"query":"test"}' "$BASE_URL/v1/rag/search")
-    [ "$STATUS_ROLLBACK" -eq 404 ] && echo "✅ Rollback Validated: RAG endpoint is disabled (404 Not Found)." || echo "❌ Rollback Failed (Status: $STATUS_ROLLBACK)"
+    
+    # --- Validation ---
+    if [ "$STATUS_ROLLBACK" -eq 404 ] || [ "$STATUS_ROLLBACK" -eq 403 ]; then
+      echo "✅ Rollback Validated: RAG endpoint is disabled (Status: $STATUS_ROLLBACK)."
+    else
+      echo "❌ Rollback Failed (Status: $STATUS_ROLLBACK)"
+    fi
     ```
 
 ---

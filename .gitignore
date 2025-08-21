@@ -45,3 +45,13 @@ node_modules/
 # Prisma cache and generated files
 api-gateway/gateway/.cache/
 api-gateway/gateway/.npm/
+
+# Backups
+*.bak
+*.swp
+*.tmp
+*.orig
+
+# Archives
+/api-gateway/X-Archive/
+/api-gateway/x-Docs/

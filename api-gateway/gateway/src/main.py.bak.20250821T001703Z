@@ -1,0 +1,20 @@
+from fastapi import FastAPI, Request
+from starlette.responses import Response, JSONResponse
+import json, httpx
+import os
+
+# Upstream LiteLLM (already running on 4000)
+UPSTREAM = "http://127.0.0.1:4000"
+
+app = FastAPI()
+
+@app.middleware("http")
+async def hx_pipeline(request: Request, call_next):
+    # The pipeline is now handled by GatewayPipeline.
+    # This middleware is kept for the local health check endpoint.
+    if request.url.path == "/healthz":
+        return JSONResponse({"ok": True, "note": "HX wrapper - deprecated proxy mode"})
+
+    # All other requests fall through to the application's routing.
+    # In our case, they will be handled by the GatewayPipeline instance.
+    return await call_next(request)

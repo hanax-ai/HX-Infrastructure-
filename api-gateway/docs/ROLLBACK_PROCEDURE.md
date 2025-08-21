@@ -47,10 +47,12 @@ cd /opt/HX-Infrastructure-/api-gateway/
 # Revert the main application files to the v1.0 state
 # This command restores the old main.py and removes the new v2.0 files.
 # Replace 'c1a2b3d4' with the actual commit hash for v1.0.
-git checkout c1a2b3d4 -- gateway/src/main.py gateway/src/app.py gateway/src/gateway_pipeline.py gateway/src/middlewares/
+TARGET_HASH="c1a2b3d4"
+git rev-parse --verify "$TARGET_HASH^{commit}" >/dev/null 2>&1 || { echo "ERROR: Target commit hash '$TARGET_HASH' not found. Please identify the correct v1.0 commit hash."; exit 1; }
+git checkout "$TARGET_HASH" -- gateway/src/main.py gateway/src/app.py gateway/src/gateway_pipeline.py gateway/src/middlewares/
 
 # It is also recommended to revert the documentation to avoid confusion
-git checkout c1a2b3d4 -- README.md gateway/README.md docs/architecture.md
+git checkout "$TARGET_HASH" -- README.md gateway/README.md docs/architecture.md
 ```
 **Note**: If you don't have the commit hash, you would need to manually replace the contents of `app.py` with the old `main.py` logic and ensure the `systemd` service points to the correct file and object.
 

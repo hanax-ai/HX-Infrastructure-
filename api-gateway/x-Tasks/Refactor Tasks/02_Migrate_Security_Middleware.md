@@ -1,1 +1,49 @@
-# Engineering Task Template## Task Information**Task ID:** ENG-002  **Task Title:** Migrate Security Logic to SecurityMiddleware**Priority:** High  **Assigned To:** Backend  **Due Date:** 2025-08-28---## Execution Steps1.  Identify all authentication and authorization logic in `/opt/HX-Infrastructure-/api-gateway/gateway/src/main.py`. This includes bearer token parsing, master key checks, and any IP address filtering.2.  Implement the identified logic within the `process` method of the `SecurityMiddleware` class in `/opt/HX-Infrastructure-/api-gateway/gateway/src/middlewares/security.py`.3.  The middleware should return a `JSONResponse` with a `401` or `403` status code immediately upon authentication failure.4.  Ensure the `SecurityMiddleware` is the first stage in the `GatewayPipeline` definition in `/opt/HX-Infrastructure-/api-gateway/gateway/src/gateway_pipeline.py`.5.  Remove the now-redundant authentication checks from `main.py` for any routes that will be handled by the pipeline.---## Validation Test**Test Description:** Verify that all endpoints protected by the pipeline correctly enforce authentication and authorization rules via the `SecurityMiddleware`.  **Expected Result:** Requests without a valid key are rejected with a `401` status, while requests with a valid key proceed to the next stage.### Test Steps1.  Make a request to a protected endpoint (e.g., `/v1/models`) without an `Authorization` header.    - `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4010/v1/models` (Expected: `401`).2.  Make a request with a valid `Authorization` bearer token.    - `curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer sk-hx-dev-default" http://127.0.0.1:4010/v1/models` (Expected: `200` or another success/valid error code, but not `401`).---## Status Tracking**Current Status:** Not Started  **Completion Percentage:** 0%  **Last Updated:** 2025-08-21  ### Change Log- 2025-08-21 - Task created.---## Additional Requirements- The middleware must have access to any required services or helpers for database lookups if user-specific keys are implemented.---## Notes- The error messages and status codes for failed authentication should remain identical to the previous implementation to avoid breaking client integrations.
+# Engineering Task Template
+
+## Task Information
+**Task ID:** ENG-002  
+**Task Title:** Migrate Security Logic to SecurityMiddleware  
+**Priority:** High  
+**Assigned To:** Backend  
+**Due Date:** 2025-08-28
+
+---
+
+## Execution Steps
+1.  Identify all authentication and authorization logic in `/opt/HX-Infrastructure-/api-gateway/gateway/src/main.py`. This includes bearer token parsing, master key checks, and any IP address filtering.
+2.  Implement the identified logic within the `process` method of the `SecurityMiddleware` class in `/opt/HX-Infrastructure-/api-gateway/gateway/src/middlewares/security.py`.
+3.  The middleware should return a `JSONResponse` with a `401` or `403` status code immediately upon authentication failure.
+4.  Ensure the `SecurityMiddleware` is the first stage in the `GatewayPipeline` definition in `/opt/HX-Infrastructure-/api-gateway/gateway/src/gateway_pipeline.py`.
+5.  Remove the now-redundant authentication checks from `main.py` for any routes that will be handled by the pipeline.
+
+---
+
+## Validation Test
+**Test Description:** Verify that all endpoints protected by the pipeline correctly enforce authentication and authorization rules via the `SecurityMiddleware`.  
+**Expected Result:** Requests without a valid key are rejected with a `401` status, while requests with a valid key proceed to the next stage.
+
+### Test Steps
+1.  Make a request to a protected endpoint (e.g., `/v1/models`) without an `Authorization` header.
+    - `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4010/v1/models` (Expected: `401`).
+2.  Make a request with a valid `Authorization` bearer token.
+    - `curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer sk-hx-dev-default" http://127.0.0.1:4010/v1/models` (Expected: `200` or another success/valid error code, but not `401`).
+
+---
+
+## Status Tracking
+**Current Status:** Not Started  
+**Completion Percentage:** 0%  
+**Last Updated:** 2025-08-21  
+
+### Change Log
+- 2025-08-21 - Task created.
+
+---
+
+## Additional Requirements
+- The middleware must have access to any required services or helpers for database lookups if user-specific keys are implemented.
+
+---
+
+## Notes
+- The error messages and status codes for failed authentication should remain identical to the previous implementation to avoid breaking client integrations.
