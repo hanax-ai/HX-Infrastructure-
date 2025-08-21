@@ -2,7 +2,8 @@
 import json
 import logging
 from typing import Any, Dict
-from fastapi import Response
+from fastapi import Request
+from starlette.responses import JSONResponse
 from .base import MiddlewareBase
 
 class TransformMiddleware(MiddlewareBase):
@@ -11,35 +12,50 @@ class TransformMiddleware(MiddlewareBase):
         self.logger = logging.getLogger(__name__)
 
     async def process(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        req = context["request"]
-        if req.url.path == "/v1/embeddings":
-            try:
-                body_bytes = await req.body()
-            except Exception as e:
-                # Log server-side but don't leak details to client
-                self.logger.error(f"Failed to read request body: {e}")
-                context["response"] = Response(
-                    status_code=400,
-                    content=json.dumps({"error": "Failed to read request body"}).encode("utf-8"),
-                    media_type="application/json"
-                )
-                return context
-            
-            try:
-                payload = json.loads(body_bytes or "{}")
-            except Exception as e:
-                # Log server-side but don't leak details to client
-                self.logger.error(f"Failed to parse JSON: {e}")
-                context["response"] = Response(
-                    status_code=400,
-                    content=json.dumps({"error": "Invalid JSON"}).encode("utf-8"),
-                    media_type="application/json"
-                )
-                return context
-            # Defensive normalization: if "input" present, normalize to "input" (OpenAI)
-            # and add an internal alias "prompt" for downstream providers if needed.
-            if "input" in payload and "prompt" not in payload:
-                payload["prompt"] = payload["input"]
-            # Re-inject normalized body
-            context["normalized_body"] = json.dumps(payload).encode("utf-8")
+        request = context["request"]
+        
+        # Only apply this transformation to the /v1/embeddings endpoint
+        if request.url.path != "/v1/embeddings" or request.method != "POST":
+            return context
+
+        try:
+            body_bytes = await request.body()
+            if not body_bytes:
+                return context  # Pass through if no body
+
+            # Cache the body so it can be read again by downstream middleware
+            context["request_body_bytes"] = body_bytes
+
+            # Create a new `receive` callable that returns the cached body
+            async def receive():
+                return {"type": "http.request", "body": body_bytes, "more_body": False}
+
+            # Replace the original `receive` callable
+            request._receive = receive
+
+        except Exception as e:
+            self.logger.error(f"Failed to read request body for /v1/embeddings: {e}")
+            context["response"] = JSONResponse(
+                status_code=400,
+                content={"error": "Failed to read request body"}
+            )
+            return context
+
+        try:
+            payload = json.loads(body_bytes)
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Invalid JSON in request for /v1/embeddings: {e}")
+            context["response"] = JSONResponse(
+                status_code=400,
+                content={"error": "Invalid JSON in request body"}
+            )
+            return context
+
+        # Idempotent transformation: map 'prompt' to 'input' only if 'input' is missing.
+        if "prompt" in payload and "input" not in payload:
+            self.logger.debug("Transforming 'prompt' to 'input' for /v1/embeddings")
+            payload["input"] = payload.pop("prompt")
+            # Store the modified body back in the context for the ExecutionMiddleware.
+            context["transformed_body"] = json.dumps(payload).encode("utf-8")
+        
         return context

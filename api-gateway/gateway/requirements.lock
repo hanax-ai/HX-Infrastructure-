@@ -1,2 +1,4 @@
 litellm==1.74.15
 langfuse<3.0.0
+pytest==8.2.2
+httpx==0.27.0

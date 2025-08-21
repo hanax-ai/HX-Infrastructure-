@@ -1,7 +1,7 @@
 from typing import Dict, Any, Sequence
 from fastapi import HTTPException, status
 
-class DbGuardMiddleware:
+class DBGuardMiddleware:
     """
     SRP: Guard DB-required routes. On outage return 503 with explicit cause.
     """

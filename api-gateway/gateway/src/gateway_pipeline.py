@@ -2,6 +2,7 @@
 import os
 from typing import Any, Dict, List, Optional
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from .middlewares.base import MiddlewareBase
 from .middlewares.security import SecurityMiddleware
 from .middlewares.validation import ValidationMiddleware
@@ -13,15 +14,21 @@ from .services.postgres_service import PostgresService
 from .services.redis_service import RedisService
 from .services.qdrant_service import QdrantService
 
+
+def _load_db_config() -> Dict[str, Optional[str]]:
+    """Loads database configuration from environment variables."""
+    return {
+        'postgres_url': os.getenv("DATABASE_URL"),
+        'redis_url': os.getenv("REDIS_URL"),
+        'qdrant_url': os.getenv("QDRANT_URL"),
+    }
+
+
 class GatewayPipeline:
     def __init__(self, middlewares: Optional[List[MiddlewareBase]] = None):
         if middlewares is None:
             # Initialize database services
-            db_config = {
-                'postgres_url': os.getenv("DATABASE_URL"),
-                'redis_url': os.getenv("REDIS_URL"), 
-                'qdrant_url': os.getenv("QDRANT_URL")
-            }
+            db_config = _load_db_config()
             
             # Validate required database connections
             if not db_config['postgres_url']:
@@ -51,5 +58,12 @@ class GatewayPipeline:
             # Early return if a stage created a response (e.g., auth fail)
             if context.get("response") is not None:
                 return context["response"]
-        # ExecutionMiddleware should set response
-        return context.get("response", Response(status_code=502, content=b"Bad Gateway"))
+        # ExecutionMiddleware should set the final response. If not, it's a failure.
+        fallback_error = {
+            "error": {
+                "message": "Bad Gateway: The request could not be processed by the upstream service.",
+                "type": "gateway_error",
+                "code": "bad_gateway"
+            }
+        }
+        return context.get("response", JSONResponse(status_code=502, content=fallback_error))

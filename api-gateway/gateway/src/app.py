@@ -1,31 +1,19 @@
-import os
-from fastapi import FastAPI
-from services.postgres_service import PostgresService
-from services.redis_service import RedisService
-from services.qdrant_service import QdrantService
-from middlewares.db_guard import DbGuardMiddleware
+# gateway/src/app.py
+from fastapi import FastAPI, Request
+from starlette.responses import JSONResponse, Response
+from .gateway_pipeline import GatewayPipeline
 
 def build_app() -> FastAPI:
-    app = FastAPI(title="HX Gateway Wrapper")
-    pg = PostgresService(os.getenv("PG_URL"))
-    rd = RedisService(os.getenv("REDIS_URL"))
-    qd = QdrantService(os.getenv("QDRANT_URL"))
+    app = FastAPI(title="HX API Gateway")
+    pipeline = GatewayPipeline()
 
-    guarded = ("/v1/keys", "/v1/api_keys", "/v1/teams", "/v1/users", "/v1/tenants")
-    dbguard = DbGuardMiddleware(pg, rd, guarded)
+    @app.get("/healthz")
+    async def healthz():
+        return {"ok": True}
 
-    # Example middleware pipeline pattern
-    @app.middleware("http")
-    async def pipeline(request, call_next):
-        ctx = {"request": request}
-        ctx = await dbguard.process(ctx)
-        return await call_next(request)
+    @app.api_route("/{full_path:path}", methods=["GET","POST","PUT","PATCH","DELETE","OPTIONS"])
+    async def _all(request: Request, full_path: str):
+        resp: Response | None = await pipeline.process_request(request)
+        return resp or JSONResponse({"detail": "Not Found"}, status_code=404)
 
-    @app.get("/healthz/deps")
-    async def deps():
-        return {
-            "postgres": await pg.healthy(),
-            "redis": await rd.healthy(),
-            "qdrant": await qd.healthy(),
-        }
     return app

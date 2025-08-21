@@ -3,7 +3,8 @@ import os
 import hmac
 import logging
 from pathlib import Path
-from fastapi import Response
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from typing import Any, Dict
 from .base import MiddlewareBase
 
@@ -94,8 +95,9 @@ class SecurityMiddleware(MiddlewareBase):
                 )
     
     async def process(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        request = context["request"]
-        # Allow liveness without auth
+        request: Request = context["request"]
+        
+        # Allow health endpoints without auth
         if request.url.path in ("/healthz", "/livez", "/readyz"):
             return context
             
@@ -103,31 +105,22 @@ class SecurityMiddleware(MiddlewareBase):
         auth_header = request.headers.get("authorization", "")
         
         # Extract token with case-insensitive scheme check but preserve token case
-        if not auth_header or len(auth_header) < 8:  # "Bearer " minimum
-            context["response"] = Response(
-                status_code=401, 
-                content=b"Unauthorized",
-                headers={"WWW-Authenticate": "Bearer"}
-            )
-            return context
-            
-        # Check if header starts with "Bearer " (case-insensitive)
-        if not auth_header[:7].lower() == "bearer ":
-            context["response"] = Response(
-                status_code=401, 
-                content=b"Unauthorized",
+        if not auth_header.lower().startswith("bearer "):
+            context["response"] = JSONResponse(
+                {"error": "Unauthorized"},
+                status_code=401,
                 headers={"WWW-Authenticate": "Bearer"}
             )
             return context
             
         # Extract token (preserve original case)
-        provided_token = auth_header[7:]  # Skip "Bearer "
+        provided_token = auth_header.split(" ", 1)[1] if len(auth_header.split(" ", 1)) > 1 else ""
         
         # Use constant-time comparison to prevent timing attacks
         if not provided_token or not hmac.compare_digest(provided_token, self.master_key):
-            context["response"] = Response(
-                status_code=401, 
-                content=b"Unauthorized",
+            context["response"] = JSONResponse(
+                {"error": "Unauthorized"},
+                status_code=401,
                 headers={"WWW-Authenticate": "Bearer"}
             )
             return context

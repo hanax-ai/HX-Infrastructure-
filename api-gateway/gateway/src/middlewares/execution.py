@@ -21,16 +21,90 @@ class ExecutionMiddleware(MiddlewareBase):
         )
 
     async def process(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        req = context["request"]
-        path = req.url.path
-        method = req.method.upper()
-        headers = dict(req.headers)
-        # Force upstream auth with same bearer (LiteLLM master_key)
-        # or strip it if LiteLLM is open in dev
-        body = context.get("normalized_body")
-        if method == "POST":
-            r = await self._client.post(path, headers=headers, content=body or await req.body())
-        else:
-            r = await self._client.request(method, path, headers=headers)
-        context["response"] = Response(status_code=r.status_code, content=r.content, headers=r.headers)
+        request = context["request"]
+        path = request.url.path
+        method = request.method.upper()
+
+        # Use transformed body if available, otherwise original request body
+        body = context.get("transformed_body")
+        if body is None:
+            body = await request.body()
+
+        # Build upstream URL, preserving the query string
+        url = f"{self._client.base_url}{path}"
+        if request.url.query:
+            url += f"?{request.url.query}"
+
+        # Header filtering logic migrated from main.py
+        hop_by_hop = {"host", "content-length", "accept-encoding", "connection", "transfer-encoding"}
+        sensitive_headers = {
+            "authorization", "cookie", "set-cookie", "x-forwarded-for", "x-real-ip",
+            "x-forwarded-proto", "x-forwarded-host", "x-original-forwarded-for",
+            "cf-connecting-ip", "cf-ipcountry", "x-cluster-client-ip",
+            "x-forwarded-server", "proxy-authorization", "www-authenticate", "proxy-authenticate"
+        }
+        
+        fwd_headers = {
+            k: v for k, v in request.headers.items()
+            if k.lower() not in hop_by_hop and k.lower() not in sensitive_headers
+        }
+
+        # Upstream authentication
+        upstream_key = os.getenv("HX_UPSTREAM_KEY")
+        if upstream_key:
+            fwd_headers["Authorization"] = f"Bearer {upstream_key}"
+        
+        # Add client IP if trusted
+        if os.getenv("HX_TRUST_PROXY_IP", "").lower() in ("true", "1", "yes") and request.client:
+            fwd_headers["X-HX-Client-IP"] = request.client.host
+
+        try:
+            upstream_response = await self._client.request(
+                method, url, headers=fwd_headers, content=body
+            )
+        except httpx.TimeoutException as e:
+            context["response"] = Response(
+                status_code=504,
+                content=json.dumps({"error": "upstream_timeout", "detail": str(e)}).encode(),
+                media_type="application/json"
+            )
+            return context
+        except httpx.HTTPError as e:
+            context["response"] = Response(
+                status_code=502,
+                content=json.dumps({"error": "upstream_unreachable", "detail": str(e)}).encode(),
+                media_type="application/json"
+            )
+            return context
+
+        # Filter response headers and add security headers
+        resp_headers = {
+            k: v for k, v in upstream_response.headers.items()
+            if k.lower() not in ("content-length", "transfer-encoding", "connection", "server", "date")
+        }
+        
+        # Add base security headers, but handle CSP separately
+        resp_headers.update({
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "X-XSS-Protection": "1; mode=block",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+        })
+
+        # Conditionally set Content-Security-Policy, respecting upstream's if present
+        if "content-security-policy" not in (k.lower() for k in resp_headers.keys()):
+            content_type = resp_headers.get("content-type", "").lower()
+            if content_type.startswith("text/html"):
+                # For HTML, allow content from the same origin as a safe default.
+                resp_headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
+            else:
+                # For non-HTML (e.g., JSON APIs), lock it down completely.
+                resp_headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none';"
+
+
+        context["response"] = Response(
+            content=upstream_response.content,
+            status_code=upstream_response.status_code,
+            headers=resp_headers
+        )
         return context
