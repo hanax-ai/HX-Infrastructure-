@@ -1,31 +1,23 @@
+from ..models.rag_upsert_models import UpsertResponse
 # gateway/src/app.py
 import os
-from fastapi import FastAPI, Request
+from fastapi import File, UploadFile, Form, FastAPI, Request
 from starlette.responses import JSONResponse, Response
-
 from .gateway_pipeline import GatewayPipeline
-
-# Routers
-from .routes.rag import router as rag_router
-from .routes.rag_upsert import router as rag_upsert_router
-from .routes.rag_delete import router as rag_delete_router
-from .routes.rag_content_loader import router as rag_loader_router
+from .routers.rag import router as rag_router
 
 def build_app() -> FastAPI:
     app = FastAPI(title="HX API Gateway")
     pipeline = GatewayPipeline()
 
-    # Mount all RAG routers explicitly
+    # Mount specific routers first
     app.include_router(rag_router, tags=["rag"])
-    app.include_router(rag_upsert_router, tags=["rag"])
-    app.include_router(rag_delete_router, tags=["rag"])
-    app.include_router(rag_loader_router, tags=["rag"])
 
     @app.get("/healthz")
     async def healthz():
         return {"ok": True}
 
-    # Keep the catch-all proxy last
+    # Catch-all proxy stays last
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
     async def _all(request: Request, path: str) -> Response:
         resp: Response | None = await pipeline.process_request(request)

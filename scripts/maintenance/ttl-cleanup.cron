@@ -1,0 +1,12 @@
+# HX Infrastructure TTL Cleanup - Nightly Maintenance
+# Removes expired documents from Qdrant vector store
+# Runs at 2:30 AM daily to avoid peak usage
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# TTL Cleanup - Remove expired documents
+30 2 * * * hx-gateway cd /opt/HX-Infrastructure-/api-gateway/gateway && source venv/bin/activate && python3 /opt/HX-Infrastructure-/scripts/maintenance/cleanup-expired-content.py >> /var/log/hx-gateway-ml/ttl-cleanup-cron.log 2>&1
+
+# Weekly dry-run to monitor expiration patterns (Sundays at 1:00 AM)
+0 1 * * 0 hx-gateway cd /opt/HX-Infrastructure-/api-gateway/gateway && source venv/bin/activate && python3 /opt/HX-Infrastructure-/scripts/maintenance/cleanup-expired-content.py --dry-run --verbose >> /var/log/hx-gateway-ml/ttl-cleanup-dryrun.log 2>&1

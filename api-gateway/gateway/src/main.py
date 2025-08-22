@@ -1,9 +1,4 @@
-from fastapi import FastAPI, Request
-from starlette.responses import JSONResponse
+# gateway/src/main.py
+from .app import build_app
 
-app = FastAPI()
-
-@app.get("/healthz")
-async def health_check():
-    return JSONResponse({"ok": True})
-
+app = build_app()

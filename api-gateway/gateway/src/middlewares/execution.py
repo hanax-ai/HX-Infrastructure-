@@ -91,19 +91,22 @@ class ExecutionMiddleware(MiddlewareBase):
             if k.lower() not in ("content-length", "transfer-encoding", "connection", "server", "date")
         }
         
+        # Create a case-insensitive mapping for lookups
+        resp_headers_lower = {k.lower(): v for k, v in resp_headers.items()}
+
         # Add base security headers, but handle CSP separately
-        if "x-content-type-options" not in resp_headers:
+        if "x-content-type-options" not in resp_headers_lower:
             resp_headers["X-Content-Type-Options"] = "nosniff"
-        if "x-frame-options" not in resp_headers:
+        if "x-frame-options" not in resp_headers_lower:
             resp_headers["X-Frame-Options"] = "DENY"
-        if "x-xss-protection" not in resp_headers:
+        if "x-xss-protection" not in resp_headers_lower:
             resp_headers["X-XSS-Protection"] = "1; mode=block"
-        if "referrer-policy" not in resp_headers:
+        if "referrer-policy" not in resp_headers_lower:
             resp_headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Conditionally set Content-Security-Policy, respecting upstream's if present
-        if not resp_headers.get("content-security-policy"):
-            content_type = resp_headers.get("content-type", "").lower()
+        if not resp_headers_lower.get("content-security-policy"):
+            content_type = resp_headers_lower.get("content-type", "").lower()
             if content_type.startswith("text/html"):
                 # For HTML, allow content from the same origin as a safe default.
                 resp_headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"

@@ -32,11 +32,15 @@ To verify that the `/v1/rag/search` endpoint correctly validates incoming payloa
 1.  **Run Validation Command**
     ```bash
     # --- Test Setup ---
-    # Ensure AUTH_TOKEN is set in your environment.
-    # Example: export AUTH_TOKEN="your-secret-api-key"
+    # Ensure API_KEY is set in your environment.
+    # Example: export API_KEY="your-secret-api-key"
     # Note: Do not commit real keys.
+    if [ -z "$API_KEY" ]; then
+      echo "❌ ERROR: API_KEY environment variable is not set."
+      exit 1
+    fi
     BASE_URL="http://127.0.0.1:4000"
-    AUTH_HEADER="Authorization: Bearer ${AUTH_TOKEN}"
+    AUTH_HEADER="Authorization: Bearer ${API_KEY}"
 
     # --- Test Execution ---
     echo "--- Testing Input Validation (expects 400 or 422) ---"

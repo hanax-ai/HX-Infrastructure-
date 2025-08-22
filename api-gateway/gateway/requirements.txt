@@ -1,0 +1,19 @@
+# Core FastAPI stack with solid version pins (based on working versions)
+fastapi~=0.115.14
+pydantic~=2.11.7
+uvicorn[standard]~=0.29.0
+httpx~=0.28.1
+
+# Additional FastAPI ecosystem
+pydantic-settings~=2.10.1
+
+# LLM and observability integrations  
+litellm==1.74.15
+langfuse<3.0.0
+
+# Testing framework
+pytest==8.2.2
+pytest-asyncio>=0.21.0
+
+# Additional dependencies for RAG functionality
+# (Add as needed based on actual imports)
