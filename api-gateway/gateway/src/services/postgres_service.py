@@ -11,22 +11,23 @@ Provides health checks and minimal query functionality using asyncpg.
 Used by DB-Guard middleware for database connectivity verification.
 """
 
-from typing import Optional, Mapping, Any
-import asyncpg
-import os
 import asyncio
 import logging
+import os
+from typing import Optional
+
+import asyncpg
 
 logger = logging.getLogger(__name__)
 
 
 class PostgresService:
     """SRP: Postgres health & minimal query; non-blocking using asyncpg."""
-    
+
     def __init__(self, url: Optional[str] = None, timeout_s: float = 3.0):
         """
         Initialize PostgreSQL service with connection URL and timeout.
-        
+
         Args:
             url: Database connection URL (falls back to PG_URL env var)
             timeout_s: Connection and query timeout in seconds
@@ -43,16 +44,13 @@ class PostgresService:
         """
         if not self.url or self._pool:
             return
-            
+
         try:
             # Convert postgresql+psycopg URL format to asyncpg format
             asyncpg_url = self.url.replace("postgresql+psycopg", "postgresql")
-            
+
             self._pool = await asyncpg.create_pool(
-                dsn=asyncpg_url,
-                min_size=1, 
-                max_size=5, 
-                timeout=self.timeout
+                dsn=asyncpg_url, min_size=1, max_size=5, timeout=self.timeout
             )
             logger.info("PostgreSQL connection pool established")
         except Exception as e:
@@ -81,7 +79,7 @@ class PostgresService:
         await self.connect()
         if not self._pool:
             raise RuntimeError("pg pool not available")
-        
+
         async with self._pool.acquire() as con:
             result = await con.fetchval("SELECT 1;")
             if result != 1:

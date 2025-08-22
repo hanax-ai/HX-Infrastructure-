@@ -1,10 +1,13 @@
-from typing import Optional
-import os
-import redis.asyncio as aioredis
 import asyncio
+import os
+from typing import Optional
+
+import redis.asyncio as aioredis
+
 
 class RedisService:
     """SRP: Redis health; non-blocking redis.asyncio with timeout."""
+
     def __init__(self, url: Optional[str] = None, timeout_s: float = 2.0):
         self.url = url or os.getenv("REDIS_URL", "")
         self.timeout = timeout_s
@@ -13,8 +16,9 @@ class RedisService:
     async def connect(self) -> None:
         if not self.url or self._client:
             return
-        self._client = aioredis.from_url(self.url, decode_responses=True,
-                                         socket_connect_timeout=self.timeout)
+        self._client = aioredis.from_url(
+            self.url, decode_responses=True, socket_connect_timeout=self.timeout
+        )
 
     async def healthy(self) -> bool:
         try:

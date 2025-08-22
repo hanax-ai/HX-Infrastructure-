@@ -1,13 +1,14 @@
-from ..models.rag_upsert_models import UpsertResponse
 # gateway/src/routes/app.py
-import os
 import logging
-from fastapi import File, UploadFile, Form, FastAPI, Request, HTTPException
+
+from fastapi import FastAPI, HTTPException, Request
 from starlette.responses import JSONResponse, Response
+
 from ..gateway_pipeline import GatewayPipeline
 from .rag import router as rag_router
 
 logger = logging.getLogger(__name__)
+
 
 def build_app() -> FastAPI:
     app = FastAPI(title="HX API Gateway")
@@ -21,7 +22,9 @@ def build_app() -> FastAPI:
         return {"ok": True}
 
     # Catch-all proxy stays last
-    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+    @app.api_route(
+        "/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    )
     async def _all(request: Request, path: str) -> Response:
         try:
             resp: Response | None = await pipeline.process_request(request)
@@ -31,7 +34,9 @@ def build_app() -> FastAPI:
             raise
         except Exception as e:
             # Log full exception with stack trace for debugging
-            logger.exception(f"Unexpected error processing request {request.method} {path}: {e}")
+            logger.exception(
+                f"Unexpected error processing request {request.method} {path}: {e}"
+            )
             # Return minimal error response to avoid exposing internal details
             return JSONResponse({"detail": "Internal Server Error"}, status_code=500)
 

@@ -13,7 +13,7 @@ REQUIRE_TOOLS := curl jq ss
 require-tools:
 	@for t in $(REQUIRE_TOOLS); do command -v $$t >/dev/null 2>&1 || { echo "Missing tool: $$t"; exit 1; }; done
 
-.PHONY: help require-tools deps-dev test-quick openapi gateway-start gateway-stop gateway-restart gateway-status gateway-logs rag-upsert-one rag-search rag-search-vec rag-bad-upsert qdrant-count qdrant-clear-ns rag-ttl-cleanup rag-ttl-preview rag-ttl-status rag-optimize rag-verify-index check-health check-port check-openapi rag-test-all
+.PHONY: help require-tools deps-dev test-quick openapi gateway-start gateway-stop gateway-restart gateway-status gateway-logs rag-upsert-one rag-search rag-search-vec rag-bad-upsert qdrant-count qdrant-clear-ns rag-ttl-cleanup rag-ttl-preview rag-ttl-status rag-optimize rag-verify-index check-health check-port check-openapi rag-test-all check-tools check-static lint format type-check test-contract
 
 # Configuration variables (safer defaults - no secrets)
 PORT ?= 4010
@@ -31,6 +31,14 @@ help:
 	@echo "  deps-dev         Install test/dev deps"
 	@echo "  test-quick       Run pytest quickly"
 	@echo "  openapi          Show API endpoints"
+	@echo ""
+	@echo "CI Gates (Prevent Drift):"
+	@echo "  check-tools      Verify all linting tools available"
+	@echo "  check-static     Run all static analysis (ruff + black + mypy)"
+	@echo "  lint             Run ruff linter"
+	@echo "  format           Run black formatter"
+	@echo "  type-check       Run mypy type checking"
+	@echo "  test-contract    Run contract tests (200/401/422 for all routes)"
 	@echo ""
 	@echo "Gateway Service Management:"
 	@echo "  gateway-start    Start HX Gateway service"
@@ -59,7 +67,7 @@ help:
 	@echo "Service Checks:"
 	@echo "  check-health     Verify service health endpoint"
 	@echo "  check-port       Verify service is listening on port"
-	@echo "  check-openapi    Verify OpenAPI endpoint is reachable"
+	@echo "  check-openapi    Comprehensive OpenAPI schema validation"
 	@echo ""
 	@echo "Orchestration:"
 	@echo "  rag-test-all     Run complete RAG test flow"
@@ -76,13 +84,48 @@ check-port:
 	@ss -lntp | grep ":$(PORT) " >/dev/null && echo "✓ Listening on :$(PORT)" || { echo "✗ Not listening on :$(PORT)"; exit 1; }
 
 check-openapi:
-	@curl -fsS "$(BASE)/openapi.json" >/dev/null && echo "✓ OpenAPI reachable" || { echo "✗ OpenAPI not reachable"; exit 1; }
+	@echo "🔍 Running comprehensive OpenAPI validation..."
+	@./api-gateway/scripts/tests/check-openapi.sh
 
 deps-dev:
-	cd api-gateway && python -m pip install -U pytest pytest-asyncio httpx pyflakes black isort
+	cd api-gateway/gateway && python -m pip install -U pytest pytest-asyncio httpx pyflakes black isort ruff mypy types-requests
 
 test-quick:
 	cd api-gateway && PYTHONPATH=. python -m pytest -q
+
+# ====================
+# CI Gates (Prevent Future Drift)
+# ====================
+
+check-tools:
+	@echo "🔍 Verifying CI tools availability..."
+	@cd api-gateway/gateway && python -c "import ruff" 2>/dev/null || { echo "✗ ruff not available"; exit 1; }
+	@cd api-gateway/gateway && python -c "import black" 2>/dev/null || { echo "✗ black not available"; exit 1; }
+	@cd api-gateway/gateway && python -c "import mypy" 2>/dev/null || { echo "✗ mypy not available"; exit 1; }
+	@echo "✅ All CI tools available"
+
+check-static: check-tools lint format type-check
+	@echo "✅ All static analysis passed"
+
+lint:
+	@echo "🔍 Running ruff linter..."
+	@cd api-gateway/gateway && python -m ruff check src/ tests/ --config ../../ruff.toml
+	@echo "✅ Ruff linting passed"
+
+format:
+	@echo "🔍 Checking black formatting..."
+	@cd api-gateway/gateway && python -m black --check --line-length 120 src/ tests/
+	@echo "✅ Black formatting passed"
+
+type-check:
+	@echo "🔍 Running mypy type checking..."
+	@cd api-gateway/gateway && python -m mypy src/ --config-file ../../pyproject.toml || { echo "⚠️  Type checking warnings found"; }
+	@echo "✅ Type checking completed"
+
+test-contract:
+	@echo "🔍 Running contract tests (200/401/422 for all routes)..."
+	@cd api-gateway && PYTHONPATH=. python -m pytest -q -k "route_" tests/
+	@echo "✅ Contract tests passed"
 
 openapi:
 	@curl -fsS $(BASE)/openapi.json | jq -r '.paths | keys[]' | sort

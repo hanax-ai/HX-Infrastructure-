@@ -5,20 +5,38 @@ FastAPI router for RAG document deletion operations with write-scope authenticat
 comprehensive error handling, and OpenAPI documentation.
 """
 
-from typing import Any, Dict
+# IMPORTANT: do NOT enable postponed annotations here (breaks OpenAPI with Pydantic v2)
+
+from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 
 from ..models.rag_delete_models import (
-    DeleteByIdsRequest,
-    DeleteByNamespaceRequest,
-    DeleteByFilterRequest,
-    DeleteResponse,
+    DeleteByIdsRequest, DeleteByNamespaceRequest, DeleteByFilterRequest, DeleteResponse
 )
-from ..services.rag_delete_helpers import qdrant_delete_by_ids, qdrant_delete_by_filter
+from ..services import rag_delete_helpers as delsvc
 from ..services.security import require_rag_write
 from ..utils.structured_logging import log_request_response
 
+# Pydantic defensive rebuilds (no-op if not needed)
+try:
+    DeleteByIdsRequest.model_rebuild()
+    DeleteByNamespaceRequest.model_rebuild()
+    DeleteByFilterRequest.model_rebuild()
+except Exception:
+    pass
+
 router = APIRouter(tags=["rag"])
+
+
+# Patchable indirection (default delegates to service)
+async def qdrant_delete_by_ids(ids):
+    return await delsvc.qdrant_delete_by_ids(ids)
+
+async def qdrant_delete_by_filter(qfilter):
+    return await delsvc.qdrant_delete_by_filter(qfilter)
+
+async def qdrant_count_points(qfilter=None):
+    return await delsvc.qdrant_count_points(qfilter)
 
 
 @router.post(
@@ -27,28 +45,20 @@ router = APIRouter(tags=["rag"])
     dependencies=[Depends(require_rag_write)],
     summary="Delete Documents by IDs",
     description="Precisely delete specific documents by their point IDs",
-    responses={
-        200: {
-            "description": "Documents successfully deleted",
-            "content": {
-                "application/json": {
-                    "example": {"status": "ok", "deleted": 3, "detail": None}
-                }
-            },
-        },
-        401: {"description": "Authentication required"},
-        403: {"description": "Invalid admin key - write access required"},
-        422: {"description": "Validation error - invalid request format"},
-        502: {"description": "Qdrant vector database error"},
-    },
 )
+@log_request_response("delete_by_ids")
 async def delete_by_ids(req: DeleteByIdsRequest = Body(...)) -> DeleteResponse:
     """Delete specific documents by their point IDs."""
+    # Contract: empty list is a no-op with 200 OK
+    if not req.ids:
+        return DeleteResponse(status="ok", deleted=0, detail=None)
+
     success, message, count = await qdrant_delete_by_ids(req.ids)
 
     if not success:
         raise HTTPException(
-            status_code=502, detail=f"Qdrant delete_by_ids failed: {message[:300]}"
+            status_code=502,
+            detail=f"Qdrant delete_by_ids failed: {message[:300]}",
         )
 
     return DeleteResponse(status="ok", deleted=count)
@@ -60,25 +70,8 @@ async def delete_by_ids(req: DeleteByIdsRequest = Body(...)) -> DeleteResponse:
     dependencies=[Depends(require_rag_write)],
     summary="Delete Documents by Namespace",
     description="Bulk delete all documents within a specific namespace",
-    responses={
-        200: {
-            "description": "Namespace successfully cleared",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "status": "ok",
-                        "deleted": -1,
-                        "detail": "count unknown; use /points/count to verify",
-                    }
-                }
-            },
-        },
-        401: {"description": "Authentication required"},
-        403: {"description": "Invalid admin key - write access required"},
-        422: {"description": "Validation error - invalid namespace format"},
-        502: {"description": "Qdrant vector database error"},
-    },
 )
+@log_request_response("delete_by_namespace")
 async def delete_by_namespace(req: DeleteByNamespaceRequest = Body(...)) -> DeleteResponse:
     """Bulk delete all documents within a specific namespace."""
     qfilter: Dict[str, Any] = {
@@ -94,7 +87,9 @@ async def delete_by_namespace(req: DeleteByNamespaceRequest = Body(...)) -> Dele
         )
 
     return DeleteResponse(
-        status="ok", deleted=count, detail="count unknown; use /points/count to verify"
+        status="ok",
+        deleted=count,
+        detail="count unknown; use /points/count to verify",
     )
 
 
@@ -104,29 +99,12 @@ async def delete_by_namespace(req: DeleteByNamespaceRequest = Body(...)) -> Dele
     dependencies=[Depends(require_rag_write)],
     summary="Delete Documents by Filter",
     description="Delete documents matching complex filter conditions",
-    responses={
-        200: {
-            "description": "Filtered documents successfully deleted",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "status": "ok",
-                        "deleted": -1,
-                        "detail": "count unknown; use /points/count to verify",
-                    }
-                }
-            },
-        },
-        400: {"description": "Invalid filter - provide at least one condition"},
-        401: {"description": "Authentication required"},
-        403: {"description": "Invalid admin key - write access required"},
-        422: {"description": "Validation error - invalid filter format"},
-        502: {"description": "Qdrant vector database error"},
-    },
 )
+@log_request_response("delete_by_filter")
 async def delete_by_filter(req: DeleteByFilterRequest = Body(...)) -> DeleteResponse:
     """Delete documents matching complex filter conditions."""
     qfilter: Dict[str, Any] = {}
+
     if req.must:
         qfilter["must"] = req.must
     if req.should:
@@ -135,8 +113,10 @@ async def delete_by_filter(req: DeleteByFilterRequest = Body(...)) -> DeleteResp
         qfilter["must_not"] = req.must_not
 
     if not qfilter:
+        # Contract expects 422 for "no conditions provided"
         raise HTTPException(
-            status_code=400, detail="Provide at least one of: must, should, must_not"
+            status_code=422,
+            detail="Provide at least one of: must, should, must_not",
         )
 
     success, message, count = await qdrant_delete_by_filter(qfilter)
@@ -148,7 +128,9 @@ async def delete_by_filter(req: DeleteByFilterRequest = Body(...)) -> DeleteResp
         )
 
     return DeleteResponse(
-        status="ok", deleted=count, detail="count unknown; use /points/count to verify"
+        status="ok",
+        deleted=count,
+        detail="count unknown; use /points/count to verify",
     )
 
 
@@ -158,21 +140,8 @@ async def delete_by_filter(req: DeleteByFilterRequest = Body(...)) -> DeleteResp
     dependencies=[Depends(require_rag_write)],
     summary="Delete Single Document",
     description="Convenience endpoint for deleting a single document by ID",
-    responses={
-        200: {
-            "description": "Document successfully deleted",
-            "content": {
-                "application/json": {
-                    "example": {"status": "ok", "deleted": 1, "detail": None}
-                }
-            },
-        },
-        401: {"description": "Authentication required"},
-        403: {"description": "Invalid admin key - write access required"},
-        422: {"description": "Validation error - ID required"},
-        502: {"description": "Qdrant vector database error"},
-    },
 )
+@log_request_response("delete_document")
 async def delete_document(
     id: str = Query(..., min_length=1, description="Document ID to delete")
 ) -> DeleteResponse:

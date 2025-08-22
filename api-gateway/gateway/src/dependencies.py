@@ -1,6 +1,7 @@
 # /opt/HX-Infrastructure-/api-gateway/gateway/src/dependencies.py
 from typing import Any
 
+
 def get_rag_retriever() -> Any:
     """
     Returns a RAG retriever.

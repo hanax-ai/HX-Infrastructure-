@@ -1,0 +1,79 @@
+# ruff configuration for HX-Infrastructure
+# See: https://docs.astral.sh/ruff/
+
+# Line length setting (applies to both linting and formatting)
+line-length = 120
+
+[lint]
+# Enable comprehensive rule sets
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings  
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "SIM",    # flake8-simplify
+    "TCH",    # flake8-type-checking
+    "FA",     # flake8-future-annotations
+]
+
+# Disable specific rules that conflict with our patterns
+ignore = [
+    "E501",    # Line too long (black handles this)
+    "B905",    # zip() without an explicit strict= parameter
+    "TCH001",  # Move application imports into a type-checking block
+    "TCH002",  # Move third-party imports into a type-checking block
+    "TCH003",  # Move standard library imports into a type-checking block
+    "FA100",   # Missing `from __future__ import annotations`
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Exclude specific directories and files
+exclude = [
+    ".bzr",
+    ".direnv", 
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "x-Docs",
+    "X-Archive",
+]
+
+[lint.per-file-ignores]
+# Tests can use more flexible patterns
+"tests/**/*.py" = ["SIM117"]  # Allow combine `if` conditions
+"**/conftest.py" = ["F401"]  # Unused imports are OK in conftest
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

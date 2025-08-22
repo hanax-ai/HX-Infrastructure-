@@ -1,3 +1,23 @@
+Nice work—this is close! A few issues + polish ideas, then a drop-in refactor.
+
+Key review notes
+
+Duplicate imports: UploadFile, File, Form appear twice in the import list.
+
+Auth pass-through: auth_headers(None) ignores a caller’s Authorization. Prefer extract_auth_header(request) with fallback.
+
+Batching not used: MarkdownUpsertRequest.batch_size isn’t applied. Large docs could time out; batch the embedding calls.
+
+Response/detail consistency: Standardize detail keys/messages; include stable doc_id for traceability.
+
+Preview + dims: Add optional TEXT_PREVIEW_CHARS and EMBEDDING_DIM guard (off by default).
+
+File size: You advertise 413 but don’t enforce; add MAX_UPLOAD_MB.
+
+Length checks: Verify vectors length matches docs.
+
+Refactored routes (drop-in)
+# gateway/src/routes/rag_content_loaders.py
 """
 RAG Content Loader Routes
 
@@ -9,7 +29,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -131,12 +151,12 @@ async def upsert_markdown(req: MarkdownUpsertRequest, request: Request) -> Upser
 @log_request_response("upsert_pdf")
 async def upsert_pdf(
     request: Request,
-    namespace: Annotated[str, Form(..., min_length=1, max_length=200, description="Namespace")],
-    metadata_json: Annotated[Optional[str], Form(None, description="JSON metadata for chunks")],
-    chunk_chars: Annotated[int, Form(1500, ge=256, le=8000, description="Characters per chunk")],
-    overlap: Annotated[int, Form(200, ge=0, le=2000, description="Overlap between chunks")],
-    batch_size: Annotated[int, Form(128, ge=1, le=1000, description="Embedding batch size")],
-    file: Annotated[UploadFile, File(..., description="PDF file")],
+    namespace: str = Form(..., min_length=1, max_length=200, description="Namespace"),
+    metadata_json: Optional[str] = Form(None, description="JSON metadata for chunks"),
+    chunk_chars: int = Form(1500, ge=256, le=8000, description="Characters per chunk"),
+    overlap: int = Form(200, ge=0, le=2000, description="Overlap between chunks"),
+    batch_size: int = Form(128, ge=1, le=1000, description="Embedding batch size"),
+    file: UploadFile = File(..., description="PDF file"),
 ) -> UpsertResponse:
     if file.content_type != "application/pdf":
         raise HTTPException(400, "File must be a PDF (application/pdf)")
@@ -217,3 +237,15 @@ async def upsert_pdf(
         failed=0,
         details=[{"result": f"upserted {len(points)} chunks from {page_count} pages"}],
     )
+
+Env you can set (optional)
+
+EMBEDDING_DIM=1024 (or 1536) to enforce vector length
+
+TEXT_PREVIEW_CHARS=200 to tweak previews (0 to disable)
+
+MAX_UPLOAD_MB=25 to enforce upload size limit
+
+This keeps your behavior intact, removes the earlier FastAPI/Pydantic gotchas, and adds guardrails for production.
+
+ChatGPT can make mistakes. OpenAI doesn't use Hana-X work

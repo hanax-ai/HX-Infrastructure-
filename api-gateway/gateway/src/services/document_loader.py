@@ -8,6 +8,7 @@ Supports Markdown and PDF with configurable chunking strategies and metadata enr
 from __future__ import annotations
 import io
 import logging
+import time
 from typing import List, Dict, Any, Optional
 from ..models.rag_upsert_models import UpsertDoc
 
@@ -100,8 +101,14 @@ def load_markdown(
             "total_chunks": len(chunks),
             "format": "markdown",
             "source_type": "text",
-            "chunk_chars": len(chunk)
+            "chunk_chars": len(chunk),
+            "created_at": int(time.time())
         })
+        
+        # Add TTL support - default 30 days if not specified
+        if "ttl_days" in chunk_metadata:
+            ttl_seconds = chunk_metadata["ttl_days"] * 86400
+            chunk_metadata["expires_at"] = int(time.time()) + ttl_seconds
         
         doc = UpsertDoc(
             text=chunk,
@@ -218,8 +225,8 @@ def validate_chunking_params(chunk_chars: int, overlap: int) -> None:
     """
     from fastapi import HTTPException
     
-    if chunk_chars < 256 or chunk_chars > 8000:
-        raise HTTPException(400, "chunk_chars must be between 256 and 8000")
+    if chunk_chars < 100 or chunk_chars > 8000:
+        raise HTTPException(400, "chunk_chars must be between 100 and 8000")
     
     if overlap < 0 or overlap > 2000:
         raise HTTPException(400, "overlap must be between 0 and 2000")

@@ -6,3 +6,10 @@ httpx~=0.28.1
 litellm==1.74.15
 langfuse<3.0.0
 pytest==8.2.2
+respx==0.21.1
+
+# Development and CI/CD tools
+ruff==0.8.1
+black==24.10.0
+mypy==1.13.0
+types-requests==2.32.0.20241016

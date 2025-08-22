@@ -1,5 +1,5 @@
-import sys
 import pathlib
+import sys
 
 # Resolve the project root directory (which is 'gateway/')
 project_root = pathlib.Path(__file__).resolve().parents[1]
@@ -9,4 +9,3 @@ project_root = pathlib.Path(__file__).resolve().parents[1]
 project_root_path = str(project_root)
 if project_root_path not in sys.path:
     sys.path.insert(0, project_root_path)
-

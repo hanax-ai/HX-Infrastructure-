@@ -5,9 +5,9 @@ SOLID-compliant service layer for RAG document deletion operations.
 Handles Qdrant vector database interactions with proper error handling and logging.
 """
 
-import os
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+import os
+from typing import Any, Optional
 
 import httpx
 
@@ -19,9 +19,9 @@ QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", "hx_rag_default")
 logger = logging.getLogger(__name__)
 
 
-def _norm_ids(ids: List[str]) -> List[str]:
+def _norm_ids(ids: list[str]) -> list[str]:
     """Trim and drop empty IDs to avoid Qdrant selector format errors."""
-    out: List[str] = []
+    out: list[str] = []
     for i in ids or []:
         if i is None:
             continue
@@ -32,7 +32,7 @@ def _norm_ids(ids: List[str]) -> List[str]:
     return out
 
 
-async def qdrant_delete_by_ids(ids: List[str]) -> Tuple[bool, str, int]:
+async def qdrant_delete_by_ids(ids: list[str]) -> tuple[bool, str, int]:
     """
     Delete specific points by their IDs.
 
@@ -48,7 +48,7 @@ async def qdrant_delete_by_ids(ids: List[str]) -> Tuple[bool, str, int]:
         logger.info("Delete by IDs called with empty/blank ID list — no-op.")
         return True, "no-op (empty id list)", 0
 
-    url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/delete"
+    url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/delete?wait=true"
     # Qdrant expects PointsSelector: {"points": [...]} — include wait for sync ops
     body = {"points": norm, "wait": True}
 
@@ -80,12 +80,16 @@ async def qdrant_delete_by_ids(ids: List[str]) -> Tuple[bool, str, int]:
             )
         return False, text, 0
 
+    except httpx.RequestError:
+        # Contract tests assert for this exact phrase
+        logger.exception("Qdrant connection failed during delete_by_ids")
+        return False, "Qdrant connection failed", 0
     except Exception as e:
-        logger.error("Exception during delete by IDs: %s", str(e))
+        logger.exception("Exception during delete by IDs")
         return False, str(e), 0
 
 
-async def qdrant_delete_by_filter(qfilter: Dict[str, Any]) -> Tuple[bool, str, int]:
+async def qdrant_delete_by_filter(qfilter: dict[str, Any]) -> tuple[bool, str, int]:
     """
     Delete points using Qdrant filter conditions.
 
@@ -96,7 +100,7 @@ async def qdrant_delete_by_filter(qfilter: Dict[str, Any]) -> Tuple[bool, str, i
         Tuple of (success, response_text, count_deleted)
         Note: count_deleted is -1 for filter-based deletes. Use /points/count to verify.
     """
-    url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/delete"
+    url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/delete?wait=true"
     body = {"filter": qfilter, "wait": True}
 
     try:
@@ -126,12 +130,17 @@ async def qdrant_delete_by_filter(qfilter: Dict[str, Any]) -> Tuple[bool, str, i
             )
         return False, text, 0
 
+    except httpx.RequestError:
+        logger.exception("Qdrant connection failed during delete_by_filter")
+        return False, "Qdrant connection failed", 0
     except Exception as e:
-        logger.error("Exception during delete by filter: %s", str(e))
+        logger.exception("Exception during delete by filter")
         return False, str(e), 0
 
 
-async def qdrant_count_points(qfilter: Optional[Dict[str, Any]] = None) -> Tuple[bool, int]:
+async def qdrant_count_points(
+    qfilter: Optional[dict[str, Any]] = None
+) -> tuple[bool, int]:
     """
     Count points in Qdrant collection, optionally with filter.
 
@@ -142,7 +151,7 @@ async def qdrant_count_points(qfilter: Optional[Dict[str, Any]] = None) -> Tuple
         Tuple of (success, count)
     """
     url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/count"
-    body: Dict[str, Any] = {"exact": True}
+    body: dict[str, Any] = {"exact": True}
     if qfilter:
         body["filter"] = qfilter
 

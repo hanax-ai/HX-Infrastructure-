@@ -10,26 +10,48 @@ Integrates with existing embedding pipeline and vector database operations.
 
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, Body
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from ..services.security import require_rag_write
-from ..services.document_loader import load_markdown, load_pdf_bytes, validate_chunking_params
-from ..services.rag_upsert_helpers import auth_headers, embed_texts, qdrant_upsert, hash_id
 from ..models.rag_upsert_models import UpsertResponse
+from ..services import rag_upsert_helpers as upsvc
+from ..services.document_loader import (
+    load_markdown,
+    load_pdf_bytes,
+    validate_chunking_params,
+)
+from ..services.security import require_rag_write
 from ..utils.structured_logging import log_request_response
+
+# --- Patchable indirection (default delegates to service) ---
+async def embed_texts(texts, headers):
+    return await upsvc.embed_texts(texts, headers)
+
+async def qdrant_upsert(points):
+    return await upsvc.qdrant_upsert(points)
+
+def auth_headers(auth_override=None):
+    return upsvc.auth_headers(auth_override)
+
+def hash_id(namespace, text):
+    return upsvc.hash_id(namespace, text)
+# -----------------------------------------------------------------------
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["rag"])
 
 
 class MarkdownUpsertRequest(BaseModel):
-    text: str = Field(..., min_length=1, max_length=1_000_000, description="Markdown content")
-    namespace: str = Field(..., min_length=1, max_length=200, description="Document namespace")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Extra metadata")
-    chunk_chars: int = Field(1500, ge=256, le=8000, description="Chars per chunk")
+    text: str = Field(
+        ..., min_length=1, max_length=1_000_000, description="Markdown content"
+    )
+    namespace: str = Field(
+        ..., min_length=1, max_length=200, description="Document namespace"
+    )
+    metadata: Optional[dict[str, Any]] = Field(None, description="Extra metadata")
+    chunk_chars: int = Field(1500, ge=100, le=8000, description="Chars per chunk")
     overlap: int = Field(200, ge=0, le=2000, description="Overlap chars")
     batch_size: int = Field(128, ge=1, le=1000, description="Embedding batch size")
 
@@ -46,7 +68,9 @@ async def upsert_markdown(req: MarkdownUpsertRequest = Body(...)) -> UpsertRespo
     validate_chunking_params(req.chunk_chars, req.overlap)
 
     try:
-        docs = load_markdown(req.text, req.namespace, req.metadata, req.chunk_chars, req.overlap)
+        docs = load_markdown(
+            req.text, req.namespace, req.metadata, req.chunk_chars, req.overlap
+        )
     except Exception as e:
         logger.error(f"Markdown processing failed: {e}")
         raise HTTPException(400, f"Failed to process Markdown: {str(e)}")
@@ -82,8 +106,12 @@ async def upsert_markdown(req: MarkdownUpsertRequest = Body(...)) -> UpsertRespo
 
     if success:
         logger.info(f"Successfully upserted {len(points)} Markdown chunks")
-        return UpsertResponse(status="ok", upserted=len(points), failed=0,
-                              details=[{"result": f"upserted {len(points)} chunks"}])
+        return UpsertResponse(
+            status="ok",
+            upserted=len(points),
+            failed=0,
+            details=[{"result": f"upserted {len(points)} chunks"}],
+        )
     raise HTTPException(502, f"Vector database upsert failed: {message[:300]}")
 
 
@@ -96,9 +124,11 @@ async def upsert_markdown(req: MarkdownUpsertRequest = Body(...)) -> UpsertRespo
 )
 @log_request_response("upsert_pdf")
 async def upsert_pdf(
-    namespace: str = Form(..., min_length=1, max_length=200, description="Document namespace"),
+    namespace: str = Form(
+        ..., min_length=1, max_length=200, description="Document namespace"
+    ),
     metadata_json: Optional[str] = Form(None, description="JSON metadata for chunks"),
-    chunk_chars: int = Form(1500, ge=256, le=8000, description="Characters per chunk"),
+    chunk_chars: int = Form(1500, ge=100, le=8000, description="Characters per chunk"),
     overlap: int = Form(200, ge=0, le=2000, description="Overlap between chunks"),
     file: UploadFile = File(..., description="PDF file to process"),
 ) -> UpsertResponse:
@@ -127,9 +157,13 @@ async def upsert_pdf(
 
     if metadata is None:
         metadata = {}
-    metadata.update({"filename": file.filename or "unknown.pdf",
-                     "file_size": len(pdf_bytes),
-                     "content_type": file.content_type})
+    metadata.update(
+        {
+            "filename": file.filename or "unknown.pdf",
+            "file_size": len(pdf_bytes),
+            "content_type": file.content_type,
+        }
+    )
 
     try:
         docs = load_pdf_bytes(pdf_bytes, namespace, metadata, chunk_chars, overlap)
@@ -170,7 +204,15 @@ async def upsert_pdf(
 
     if success:
         page_count = metadata.get("page_count", "unknown")
-        logger.info(f"Successfully upserted {len(points)} PDF chunks from {page_count} pages")
-        return UpsertResponse(status="ok", upserted=len(points), failed=0,
-                              details=[{"result": f"upserted {len(points)} chunks from {page_count} pages"}])
+        logger.info(
+            f"Successfully upserted {len(points)} PDF chunks from {page_count} pages"
+        )
+        return UpsertResponse(
+            status="ok",
+            upserted=len(points),
+            failed=0,
+            details=[
+                {"result": f"upserted {len(points)} chunks from {page_count} pages"}
+            ],
+        )
     raise HTTPException(502, f"Vector database upsert failed: {message[:300]}")
