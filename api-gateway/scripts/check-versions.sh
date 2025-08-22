@@ -1,9 +1,9 @@
 #!/bin/bash
 # scripts/check-versions.sh
-"""
-Dependency version checker for HX Gateway
-Validates that installed packages match pinned requirements
-"""
+#
+# Dependency version checker for HX Gateway
+# Validates that installed packages match pinned requirements
+#
 
 set -euo pipefail
 
@@ -22,7 +22,23 @@ echo ""
 cd "$(dirname "$0")/../gateway"
 
 echo -e "${YELLOW}Activating virtual environment...${NC}"
-source venv/bin/activate
+
+# Check if virtual environment exists and is readable
+VENV_ACTIVATE="$(dirname "$0")/../gateway/venv/bin/activate"
+if [[ ! -f "$VENV_ACTIVATE" ]] || [[ ! -r "$VENV_ACTIVATE" ]]; then
+    echo -e "${RED}ERROR: Virtual environment not found or not readable at: $VENV_ACTIVATE${NC}" >&2
+    echo -e "${RED}Please ensure the virtual environment is properly set up.${NC}" >&2
+    exit 1
+fi
+
+# Attempt to source the virtual environment
+if ! source venv/bin/activate; then
+    echo -e "${RED}ERROR: Failed to activate virtual environment${NC}" >&2
+    echo -e "${RED}The activate script exists but failed to source properly.${NC}" >&2
+    exit 1
+fi
+
+echo -e "${GREEN}Virtual environment activated successfully${NC}"
 
 echo -e "${YELLOW}Checking pinned versions vs installed...${NC}"
 echo ""

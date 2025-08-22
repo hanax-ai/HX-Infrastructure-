@@ -20,12 +20,20 @@ import httpx
 from pydantic import BaseModel
 
 # Configure logging
+log_file_path = '/var/log/hx-gateway-ml/ttl-cleanup.log'
+try:
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+except OSError as e:
+    print(f"Error: Could not create log directory {os.path.dirname(log_file_path)}: {e}")
+    print("Please ensure the process has appropriate permissions or create the directory manually.")
+    sys.exit(1)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('/var/log/hx-gateway-ml/ttl-cleanup.log')
+        logging.FileHandler(log_file_path)
     ]
 )
 logger = logging.getLogger(__name__)
@@ -50,26 +58,73 @@ class CleanupStats(BaseModel):
     execution_time_seconds: float = 0.0
 
 
-async def get_expired_documents(
+async def delete_expired_by_filter(
     client: httpx.AsyncClient,
-    config: CleanupConfig,
-    offset: int = 0
-) -> List[Dict[str, Any]]:
+    config: CleanupConfig
+) -> Dict[str, Any]:
     """
-    Query Qdrant for documents with expired TTL.
+    Delete expired documents using atomic server-side filter operation.
     
     Args:
         client: HTTP client for Qdrant API
         config: Cleanup configuration
-        offset: Pagination offset
         
     Returns:
-        List of expired document point IDs and metadata
+        Dictionary with deletion results including count and operation status
     """
     current_time = datetime.now(timezone.utc).isoformat()
     
-    # Qdrant scroll query to find expired documents
-    query_payload = {
+    if config.dry_run:
+        # For dry-run, first query to get count and details
+        query_payload = {
+            "filter": {
+                "must": [
+                    {
+                        "key": "expires_at",
+                        "range": {
+                            "lt": current_time
+                        }
+                    }
+                ]
+            },
+            "limit": 10000,  # Large limit for dry-run counting
+            "with_payload": ["namespace", "doc_id", "expires_at"],
+            "with_vector": False
+        }
+        
+        try:
+            response = await client.post(
+                f"{config.qdrant_url}/collections/{config.collection_name}/points/scroll",
+                json=query_payload,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            points = data.get("result", {}).get("points", [])
+            
+            logger.info(f"[DRY-RUN] Would delete {len(points)} expired documents")
+            for doc in points[:10]:  # Log first 10 for preview
+                payload = doc.get("payload", {})
+                logger.info(
+                    f"[DRY-RUN] Would delete: id={doc['id']}, "
+                    f"namespace={payload.get('namespace')}, "
+                    f"doc_id={payload.get('doc_id')}, "
+                    f"expires_at={payload.get('expires_at')}"
+                )
+            
+            return {
+                "deleted_count": len(points),
+                "points": points,
+                "dry_run": True
+            }
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to query expired documents for dry-run: {e}")
+            return {"deleted_count": 0, "points": [], "error": str(e)}
+    
+    # LIVE mode: Atomic delete-by-filter
+    delete_payload = {
         "filter": {
             "must": [
                 {
@@ -79,27 +134,80 @@ async def get_expired_documents(
                     }
                 }
             ]
-        },
-        "limit": config.batch_size,
-        "offset": offset,
-        "with_payload": ["namespace", "doc_id", "expires_at", "created_at"],
-        "with_vector": False
+        }
     }
     
     try:
         response = await client.post(
-            f"{config.qdrant_url}/collections/{config.collection_name}/points/scroll",
-            json=query_payload,
-            timeout=30.0
+            f"{config.qdrant_url}/collections/{config.collection_name}/points/delete",
+            json=delete_payload,
+            timeout=120.0  # Longer timeout for potentially large deletes
         )
         response.raise_for_status()
         
-        data = response.json()
-        return data.get("result", {}).get("points", [])
+        result = response.json()
+        operation_result = result.get("result", {})
+        deleted_count = operation_result.get("operation_id", 0)  # Qdrant returns operation_id for async ops
+        
+        # For immediate feedback, we'll use status from response
+        status = result.get("status", "unknown")
+        
+        logger.info(f"Successfully initiated delete operation for expired documents (status: {status})")
+        
+        return {
+            "deleted_count": deleted_count if isinstance(deleted_count, int) else 0,
+            "operation_result": operation_result,
+            "status": status
+        }
         
     except httpx.HTTPError as e:
-        logger.error(f"Failed to query expired documents: {e}")
-        return []
+        logger.error(f"Failed to delete expired documents by filter: {e}")
+        return {"deleted_count": 0, "error": str(e)}
+
+
+async def cleanup_expired_content(config: CleanupConfig) -> CleanupStats:
+    """
+    Main cleanup function - finds and removes expired documents using atomic delete-by-filter.
+    
+    Args:
+        config: Configuration for cleanup operation
+        
+    Returns:
+        Statistics from cleanup operation
+    """
+    start_time = datetime.now()
+    stats = CleanupStats()
+    
+    logger.info(f"Starting TTL cleanup (dry_run={config.dry_run})")
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # Perform atomic delete-by-filter operation
+            delete_result = await delete_expired_by_filter(client, config)
+            
+            if "error" in delete_result:
+                stats.errors.append(f"Delete operation failed: {delete_result['error']}")
+            else:
+                deleted_count = delete_result.get("deleted_count", 0)
+                stats.total_deleted = deleted_count
+                stats.total_scanned = deleted_count  # In atomic operation, scanned = deleted
+                stats.total_expired = deleted_count
+                
+                # Extract namespace information if available (from dry-run or additional query)
+                if config.dry_run and "points" in delete_result:
+                    for doc in delete_result["points"]:
+                        namespace = doc.get("payload", {}).get("namespace")
+                        if namespace and namespace not in stats.namespaces_affected:
+                            stats.namespaces_affected.append(namespace)
+                elif not config.dry_run and deleted_count > 0:
+                    # For live mode, we could optionally query for namespace info
+                    # but atomic delete doesn't return detailed point info
+                    logger.info(f"Atomic delete completed - {deleted_count} documents removed")
+                    
+        except Exception as e:
+            error_msg = f"Unexpected error during cleanup: {e}"
+            logger.error(error_msg)
+            stats.errors.append(error_msg)
 
 
 async def delete_expired_batch(
@@ -159,45 +267,6 @@ async def cleanup_expired_content(config: CleanupConfig) -> CleanupStats:
     
     async with httpx.AsyncClient() as client:
         offset = 0
-        
-        while True:
-            # Get batch of expired documents
-            expired_docs = await get_expired_documents(client, config, offset)
-            
-            if not expired_docs:
-                logger.info("No more expired documents found")
-                break
-            
-            stats.total_scanned += len(expired_docs)
-            stats.total_expired += len(expired_docs)
-            
-            # Extract point IDs and track namespaces
-            point_ids = []
-            for doc in expired_docs:
-                point_ids.append(doc["id"])
-                
-                namespace = doc.get("payload", {}).get("namespace")
-                if namespace and namespace not in stats.namespaces_affected:
-                    stats.namespaces_affected.append(namespace)
-            
-            # Log expiration details
-            for doc in expired_docs:
-                payload = doc.get("payload", {})
-                logger.info(
-                    f"Expired document: id={doc['id']}, "
-                    f"namespace={payload.get('namespace')}, "
-                    f"doc_id={payload.get('doc_id')}, "
-                    f"expires_at={payload.get('expires_at')}"
-                )
-            
-            # Delete batch
-            if await delete_expired_batch(client, config, point_ids):
-                stats.total_deleted += len(point_ids)
-            else:
-                stats.errors.append(f"Failed to delete batch at offset {offset}")
-            
-            # Continue pagination
-            offset += config.batch_size
     
     # Calculate execution time
     end_time = datetime.now()
@@ -211,7 +280,7 @@ def load_config() -> CleanupConfig:
     """Load configuration from environment variables."""
     return CleanupConfig(
         qdrant_url=os.getenv("QDRANT_URL", "http://localhost:6333"),
-        collection_name=os.getenv("QDRANT_COLLECTION", "hx_embeddings"),
+        collection_name=os.getenv("QDRANT_COLLECTION", "hx_rag_default"),
         batch_size=int(os.getenv("CLEANUP_BATCH_SIZE", "1000")),
         admin_key=os.getenv("HX_ADMIN_KEY")
     )

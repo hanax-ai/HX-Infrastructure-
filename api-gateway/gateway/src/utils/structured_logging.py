@@ -196,7 +196,15 @@ def log_request_response(operation: str):
                 doc_count = 0
                 
                 for arg in args:
-                    if hasattr(arg, 'method') and hasattr(arg, 'url'):  # Request-like object
+                    if isinstance(arg, Request):
+                        request_info = {
+                            'method': arg.method,
+                            'url': str(arg.url),
+                            'client_ip': arg.client.host if arg.client else None,
+                            'user_agent': arg.headers.get('user-agent')
+                        }
+                        break
+                    elif hasattr(arg, 'method') and hasattr(arg, 'url'):  # Request-like object fallback
                         request_info = {
                             'method': getattr(arg, 'method', None),
                             'url': str(getattr(arg, 'url', '')),

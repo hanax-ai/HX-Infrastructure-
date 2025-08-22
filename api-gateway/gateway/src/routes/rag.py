@@ -39,12 +39,16 @@ class RagSearchResponse(BaseModel):
 # ---- Helpers ---------------------------------------------------------------
 
 async def _compute_embedding(text: str, auth_header: Optional[str]) -> List[float]:
-    if not auth_header:
+    auth = auth_header or EMBEDDING_AUTH_HEADER
+    if not auth:
         raise HTTPException(401, "Authorization required to compute embeddings.")
     payload = {"model": EMBEDDING_MODEL, "input": text}
-    headers = {"Authorization": auth_header, "Content-Type": "application/json"}
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        r = await client.post(f"{GATEWAY_BASE}/v1/embeddings", headers=headers, json=payload)
+    headers = {"Authorization": auth, "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(f"{GATEWAY_BASE}/v1/embeddings", headers=headers, json=payload)
+    except httpx.RequestError as e:
+        raise HTTPException(502, f"Could not connect to embedding service: {e}")
     if r.status_code != 200:
         raise HTTPException(r.status_code, f"Embeddings error: {r.text}")
     try:
@@ -71,8 +75,11 @@ async def _qdrant_search(
         body["filter"] = {"must": [{"key": "namespace", "match": {"value": namespace}}]}
 
     url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/search"
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        r = await client.post(url, json=body)
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.post(url, json=body)
+    except httpx.RequestError as e:
+        raise HTTPException(503, f"Could not connect to Qdrant: {e}")
     if r.status_code != 200:
         raise HTTPException(r.status_code, f"Qdrant error: {r.text}")
     return r.json()
@@ -86,9 +93,8 @@ async def rag_search(req: RagSearchRequest, request: Request) -> RagSearchRespon
     if vector is None:
         if not req.query:
             raise HTTPException(400, "Provide either 'vector' or 'query'.")
-        caller_auth = request.headers.get("authorization")
-        auth = caller_auth or EMBEDDING_AUTH_HEADER
-        vector = await _compute_embedding(req.query, auth)
+        auth_header = request.headers.get("authorization")
+        vector = await _compute_embedding(req.query, auth_header)
 
     # 2) Qdrant search
     result = await _qdrant_search(
