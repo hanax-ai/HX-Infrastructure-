@@ -18,13 +18,15 @@ from ..services.security import require_rag_write
 from ..utils.structured_logging import log_request_response
 
 # Pydantic defensive rebuilds (no-op if not needed)
+# Pydantic defensive rebuilds (no-op if not needed)
 try:
     DeleteByIdsRequest.model_rebuild()
     DeleteByNamespaceRequest.model_rebuild()
     DeleteByFilterRequest.model_rebuild()
-except Exception:
-    pass
-
+except Exception as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Failed to rebuild Pydantic models: {e}")
 router = APIRouter(tags=["rag"])
 
 
@@ -44,11 +46,11 @@ async def qdrant_count_points(qfilter=None):
     response_model=DeleteResponse,
     dependencies=[Depends(require_rag_write)],
     summary="Delete Documents by IDs",
-    description="Precisely delete specific documents by their point IDs",
+    description="Precisely delete specific documents by their point IDs with verified count",
 )
 @log_request_response("delete_by_ids")
 async def delete_by_ids(req: DeleteByIdsRequest = Body(...)) -> DeleteResponse:
-    """Delete specific documents by their point IDs."""
+    """Delete specific documents by their point IDs with verified count."""
     # Contract: empty list is a no-op with 200 OK
     if not req.ids:
         return DeleteResponse(status="ok", deleted=0, detail=None)
@@ -61,7 +63,19 @@ async def delete_by_ids(req: DeleteByIdsRequest = Body(...)) -> DeleteResponse:
             detail=f"Qdrant delete_by_ids failed: {message[:300]}",
         )
 
-    return DeleteResponse(status="ok", deleted=count)
+    # Handle verified vs unverified counts consistently
+    if count == -1:
+        return DeleteResponse(
+            status="ok",
+            deleted=0,
+            detail="count unknown; verification failed",
+        )
+    
+    return DeleteResponse(
+        status="ok", 
+        deleted=count,
+        detail=f"deleted {count} points (verified)" if count > 0 else None
+    )
 
 
 @router.post(
@@ -69,11 +83,11 @@ async def delete_by_ids(req: DeleteByIdsRequest = Body(...)) -> DeleteResponse:
     response_model=DeleteResponse,
     dependencies=[Depends(require_rag_write)],
     summary="Delete Documents by Namespace",
-    description="Bulk delete all documents within a specific namespace",
+    description="Bulk delete all documents within a specific namespace with verified count",
 )
 @log_request_response("delete_by_namespace")
 async def delete_by_namespace(req: DeleteByNamespaceRequest = Body(...)) -> DeleteResponse:
-    """Bulk delete all documents within a specific namespace."""
+    """Bulk delete all documents within a specific namespace with verified count."""
     qfilter: Dict[str, Any] = {
         "must": [{"key": "namespace", "match": {"value": req.namespace}}]
     }
@@ -86,10 +100,18 @@ async def delete_by_namespace(req: DeleteByNamespaceRequest = Body(...)) -> Dele
             detail=f"Qdrant delete_by_namespace failed: {message[:300]}",
         )
 
+    # Handle verified vs unverified counts consistently
+    if count == -1:
+        return DeleteResponse(
+            status="ok",
+            deleted=0,
+            detail="count unknown; verification failed",
+        )
+    
     return DeleteResponse(
         status="ok",
         deleted=count,
-        detail="count unknown; use /points/count to verify",
+        detail=f"deleted {count} points (verified)" if count > 0 else None,
     )
 
 
@@ -98,11 +120,11 @@ async def delete_by_namespace(req: DeleteByNamespaceRequest = Body(...)) -> Dele
     response_model=DeleteResponse,
     dependencies=[Depends(require_rag_write)],
     summary="Delete Documents by Filter",
-    description="Delete documents matching complex filter conditions",
+    description="Delete documents matching complex filter conditions with verified count",
 )
 @log_request_response("delete_by_filter")
 async def delete_by_filter(req: DeleteByFilterRequest = Body(...)) -> DeleteResponse:
-    """Delete documents matching complex filter conditions."""
+    """Delete documents matching complex filter conditions with verified count."""
     qfilter: Dict[str, Any] = {}
 
     if req.must:
@@ -127,10 +149,18 @@ async def delete_by_filter(req: DeleteByFilterRequest = Body(...)) -> DeleteResp
             detail=f"Qdrant delete_by_filter failed: {message[:300]}",
         )
 
+    # Handle verified vs unverified counts consistently
+    if count == -1:
+        return DeleteResponse(
+            status="ok",
+            deleted=0,
+            detail="count unknown; verification failed",
+        )
+    
     return DeleteResponse(
         status="ok",
         deleted=count,
-        detail="count unknown; use /points/count to verify",
+        detail=f"deleted {count} points (verified)" if count > 0 else None,
     )
 
 

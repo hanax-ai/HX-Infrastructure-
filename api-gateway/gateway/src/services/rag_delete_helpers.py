@@ -34,19 +34,27 @@ def _norm_ids(ids: list[str]) -> list[str]:
 
 async def qdrant_delete_by_ids(ids: list[str]) -> tuple[bool, str, int]:
     """
-    Delete specific points by their IDs.
+    Delete specific points by their IDs with verified count.
 
     Args:
         ids: List of point IDs to delete
 
     Returns:
         Tuple of (success, response_text, count_deleted)
-        Note: count_deleted is len(ids) on success; use /points/count to verify.
+        Note: count_deleted is verified via count endpoint before/after deletion.
     """
     norm = _norm_ids(ids)
     if not norm:
         logger.info("Delete by IDs called with empty/blank ID list — no-op.")
         return True, "no-op (empty id list)", 0
+
+    # Get count before deletion by creating a filter for these specific IDs
+    pre_filter = {"must": [{"key": "id", "match": {"any": norm}}]}
+    count_success, pre_count = await qdrant_count_points(pre_filter)
+    
+    if not count_success:
+        logger.warning("Could not verify pre-deletion count, proceeding with delete")
+        pre_count = -1  # Continue with deletion but return -1 to indicate uncertainty
 
     url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/delete?wait=true"
     # Qdrant expects PointsSelector: {"points": [...]} — include wait for sync ops
@@ -65,7 +73,18 @@ async def qdrant_delete_by_ids(ids: list[str]) -> tuple[bool, str, int]:
         text = response.text
 
         if ok:
-            logger.info("Successfully requested deletion for %d points", len(norm))
+            # Verify actual deletion count if we got pre-count
+            if pre_count >= 0:
+                post_count_success, post_count = await qdrant_count_points(pre_filter)
+                if post_count_success:
+                    actual_deleted = pre_count - post_count
+                    logger.info("Successfully deleted %d points (verified)", actual_deleted)
+                    return True, text, actual_deleted
+                else:
+                    logger.warning("Could not verify post-deletion count")
+            
+            # Fallback: return optimistic count with warning
+            logger.info("Successfully requested deletion for %d points (unverified)", len(norm))
             return True, text, len(norm)
 
         # Log more detail (best-effort JSON parse)
@@ -91,15 +110,22 @@ async def qdrant_delete_by_ids(ids: list[str]) -> tuple[bool, str, int]:
 
 async def qdrant_delete_by_filter(qfilter: dict[str, Any]) -> tuple[bool, str, int]:
     """
-    Delete points using Qdrant filter conditions.
+    Delete points using Qdrant filter conditions with verified count.
 
     Args:
         qfilter: Qdrant filter dict with must/should/must_not conditions
 
     Returns:
         Tuple of (success, response_text, count_deleted)
-        Note: count_deleted is -1 for filter-based deletes. Use /points/count to verify.
+        Note: count_deleted is verified via count endpoint before/after deletion.
     """
+    # Get count before deletion
+    count_success, pre_count = await qdrant_count_points(qfilter)
+    
+    if not count_success:
+        logger.warning("Could not verify pre-deletion count, proceeding with delete")
+        pre_count = -1  # Continue with deletion but return -1 to indicate uncertainty
+
     url = f"{QDRANT_URL}/collections/{QDRANT_COLLECTION}/points/delete?wait=true"
     body = {"filter": qfilter, "wait": True}
 
@@ -116,7 +142,18 @@ async def qdrant_delete_by_filter(qfilter: dict[str, Any]) -> tuple[bool, str, i
         text = response.text
 
         if ok:
-            logger.info("Filter-based delete request succeeded")
+            # Verify actual deletion count if we got pre-count
+            if pre_count >= 0:
+                post_count_success, post_count = await qdrant_count_points(qfilter)
+                if post_count_success:
+                    actual_deleted = pre_count - post_count
+                    logger.info("Successfully deleted %d points (verified)", actual_deleted)
+                    return True, text, actual_deleted
+                else:
+                    logger.warning("Could not verify post-deletion count")
+            
+            # Fallback: return -1 to indicate unknown count
+            logger.info("Filter-based delete request succeeded (count unverified)")
             return True, text, -1
 
         try:

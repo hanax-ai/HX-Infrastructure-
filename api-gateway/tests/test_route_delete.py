@@ -26,17 +26,25 @@ def _prep_env(monkeypatch):
 
 @pytest.fixture
 def mock_successful_delete(monkeypatch):
-    """Mock successful Qdrant delete operations"""
+    """Mock successful Qdrant delete operations with verification"""
 
     async def fake_delete_by_ids(point_ids):
+        # New behavior: return verified count (simulating successful verification)
         return True, f"Deleted {len(point_ids)} points", len(point_ids)
 
     async def fake_delete_by_filter(filter_conditions):
-        return True, "Deleted points matching filter", -1  # -1 indicates count unknown
+        # New behavior: return verified count for filter operations too
+        # Simulate finding 3 matching documents for consistency with expectations
+        return True, "Deleted points matching filter", 3
+
+    async def fake_count_points(filter_conditions=None):
+        # Mock count function to support verification
+        return True, 3  # Simulate 3 points found
 
     # Patch at the route module level where our resolver will find them
     monkeypatch.setattr(delete_route, "qdrant_delete_by_ids", fake_delete_by_ids)
     monkeypatch.setattr(delete_route, "qdrant_delete_by_filter", fake_delete_by_filter)
+    monkeypatch.setattr(delete_route, "qdrant_count_points", fake_count_points)
 
 
 @pytest.fixture
@@ -137,8 +145,8 @@ class TestDeleteByNamespace:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-        assert data["deleted"] == -1  # Count unknown for batch operations
-        assert "count unknown" in data["detail"]
+        assert data["deleted"] == 3  # Count verified through before/after comparison
+        assert "verified" in data["detail"]
 
     def test_delete_by_namespace_requires_auth(self, client):
         """Test that delete by namespace requires admin authentication"""
@@ -188,8 +196,8 @@ class TestDeleteByFilter:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-        assert data["deleted"] == -1  # Count unknown for filter operations
-        assert "count unknown" in data["detail"]
+        assert data["deleted"] == 3  # Count verified through before/after comparison
+        assert "verified" in data["detail"]
 
     def test_delete_by_filter_namespace_only(self, client, mock_successful_delete):
         """Test deletion with namespace-only filter"""

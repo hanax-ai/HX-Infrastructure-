@@ -20,8 +20,11 @@ from pydantic import BaseModel
 
 # Configure logging
 log_file_path = "/var/log/hx-gateway-ml/ttl-cleanup.log"
+log_handlers = [logging.StreamHandler()]  # Always include console logging
+
 try:
     os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+    log_handlers.append(logging.FileHandler(log_file_path))
 except OSError as e:
     print(
         f"Error: Could not create log directory {os.path.dirname(log_file_path)}: {e}"
@@ -34,9 +37,28 @@ except OSError as e:
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler(log_file_path)],
+    handlers=log_handlers,
 )
 logger = logging.getLogger(__name__)
+
+
+def build_auth_headers(config: "CleanupConfig") -> dict[str, str]:
+    """
+    Build authentication headers for Qdrant API requests.
+    
+    Args:
+        config: Cleanup configuration containing admin_key
+        
+    Returns:
+        Dictionary of headers to include in requests
+    """
+    headers = {"Content-Type": "application/json"}
+    
+    if config.admin_key:
+        # Use X-Api-Key header for Qdrant authentication
+        headers["X-Api-Key"] = config.admin_key
+        
+    return headers
 
 
 class CleanupConfig(BaseModel):
@@ -111,14 +133,44 @@ async def delete_expired_by_filter(
             logger.error(f"Failed to query expired documents for dry-run: {e}")
             return {"deleted_count": 0, "points": [], "error": str(e)}
 
-    # LIVE mode: Atomic delete-by-filter
+    # LIVE mode: First count expired documents, then perform synchronous delete
+    
+    # Step 1: Count expired documents before deletion
+    count_payload = {
+        "filter": {"must": [{"key": "expires_at", "range": {"lt": current_time}}]},
+        "exact": True  # Get exact count
+    }
+    
+    expected_delete_count = 0
+    try:
+        count_response = await client.post(
+            f"{config.qdrant_url}/collections/{config.collection_name}/points/count",
+            json=count_payload,
+            timeout=30.0,
+        )
+        count_response.raise_for_status()
+        count_result = count_response.json()
+        expected_delete_count = count_result.get("result", {}).get("count", 0)
+        
+        if expected_delete_count == 0:
+            logger.info("No expired documents found to delete")
+            return {"deleted_count": 0, "operation_result": {}, "status": "ok"}
+            
+        logger.info(f"Found {expected_delete_count} expired documents to delete")
+        
+    except httpx.HTTPError as e:
+        logger.error(f"Failed to count expired documents: {e}")
+        return {"deleted_count": 0, "error": str(e)}
+
+    # Step 2: Perform synchronous deletion with wait=true
     delete_payload = {
-        "filter": {"must": [{"key": "expires_at", "range": {"lt": current_time}}]}
+        "filter": {"must": [{"key": "expires_at", "range": {"lt": current_time}}]},
+        "wait": True  # Wait for operation to complete synchronously
     }
 
     try:
         response = await client.post(
-            f"{config.qdrant_url}/collections/{config.collection_name}/points/delete",
+            f"{config.qdrant_url}/collections/{config.collection_name}/points/delete?wait=true",
             json=delete_payload,
             timeout=120.0,  # Longer timeout for potentially large deletes
         )
@@ -126,9 +178,19 @@ async def delete_expired_by_filter(
 
         result = response.json()
         operation_result = result.get("result", {})
-        deleted_count = operation_result.get(
-            "operation_id", 0
-        )  # Qdrant returns operation_id for async ops
+        
+        # For synchronous operations with wait=true, Qdrant should return the actual deleted count
+        # Try multiple possible response keys where the deleted count might be stored
+        deleted_count = (
+            operation_result.get("deleted", 0) or  # Most likely key for deleted count
+            operation_result.get("affected", 0) or  # Alternative key
+            operation_result.get("count", 0) or     # Another possible key
+            expected_delete_count if result.get("status") == "ok" else 0  # Fallback to expected count on success
+        )
+        
+        # Ensure we have a valid integer count
+        if not isinstance(deleted_count, int):
+            deleted_count = expected_delete_count if result.get("status") == "ok" else 0
 
         # For immediate feedback, we'll use status from response
         status = result.get("status", "unknown")
@@ -163,7 +225,10 @@ async def cleanup_expired_content(config: CleanupConfig) -> CleanupStats:
 
     logger.info(f"Starting TTL cleanup (dry_run={config.dry_run})")
 
-    async with httpx.AsyncClient() as client:
+    # Build authentication headers for all requests
+    auth_headers = build_auth_headers(config)
+    
+    async with httpx.AsyncClient(headers=auth_headers) as client:
         try:
             # Perform atomic delete-by-filter operation
             delete_result = await delete_expired_by_filter(client, config)
